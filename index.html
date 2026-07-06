@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Board interativo da Arquitetura Borboleta — pan, zoom vetorial, post-its e conectores.">
+<title>Board Borboleta — arquitetura interativa</title>
+<style>
+  :root{
+    --paper:#F4F2EA; --paper-2:#FBFAF4; --ink:#1A1B1A; --ink-2:#3C3D3B;
+    --ink-soft:#6E6F6B; --ink-faint:#9A9B95; --hair:#CFCCC0; --hair-2:#B7B5A7;
+    --body:#1A1B1A; --body-txt:#F7F5ED;
+    --pi-yellow:#FCE68A; --pi-pink:#F7BFD0; --pi-blue:#AFD6EC; --pi-green:#BFE3B4; --pi-white:#FBFAF4;
+    --accent:#1A1B1A; --sel:#C69A2E;
+    font-family:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;color:var(--ink);background:#E7E4D9;overflow:hidden;-webkit-font-smoothing:antialiased}
+  .serif{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif}
+
+  /* ---------- top bar ---------- */
+  .bar{position:fixed;top:0;left:0;right:0;z-index:40;display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+    padding:9px 14px;background:rgba(20,20,19,.95);color:#F4F2EA;box-shadow:0 6px 22px -14px rgba(0,0,0,.6)}
+  .bar .brand{font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:12px;display:flex;align-items:center;gap:9px;margin-right:auto}
+  .bar .brand small{font-weight:500;letter-spacing:.03em;text-transform:none;color:#B6B4A6;font-size:11px}
+  .btn{font:inherit;font-size:12px;font-weight:600;letter-spacing:.02em;color:#F4F2EA;background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.18);padding:7px 12px;border-radius:6px;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:7px}
+  .btn:hover{background:rgba(255,255,255,.16)}
+  .btn:focus-visible{outline:2px solid var(--pi-yellow);outline-offset:2px}
+  .btn.primary{background:var(--pi-yellow);color:#1A1B1A;border-color:transparent;font-weight:700}
+  .btn.on{background:var(--pi-yellow);color:#1A1B1A;border-color:transparent;font-weight:700}
+  .btn.ghost{background:transparent}
+  .palette{display:flex;gap:5px;align-items:center}
+  .sw{width:19px;height:19px;border-radius:5px;border:2px solid rgba(255,255,255,.35);cursor:pointer;transition:.14s;padding:0}
+  .sw[aria-pressed="true"]{border-color:#fff;transform:scale(1.12);box-shadow:0 0 0 2px rgba(255,255,255,.25)}
+  .sep{width:1px;height:22px;background:rgba(255,255,255,.16);margin:0 3px}
+  .bar a.link{color:#E7C86A;font-size:12px;font-weight:600;text-decoration:none;letter-spacing:.02em}
+  .bar a.link:hover{text-decoration:underline}
+
+  /* ---------- stage ---------- */
+  .stage{position:fixed;inset:52px 0 0 0}
+  svg#board{width:100%;height:100%;display:block;touch-action:none;cursor:grab;background:var(--paper)}
+  svg#board.panning{cursor:grabbing}
+  svg#board.connect{cursor:crosshair}
+
+  .wing{fill:none;stroke:var(--ink);stroke-width:1.5;vector-effect:non-scaling-stroke}
+  .vein{stroke:var(--ink);stroke-width:.7;fill:none;opacity:.18;vector-effect:non-scaling-stroke}
+  .zoneName{font-weight:700;letter-spacing:.2em;text-transform:uppercase;fill:var(--ink)}
+  .zoneTag{fill:var(--ink-soft);font-weight:600}
+  .kicker{fill:var(--ink-faint);font-weight:700;letter-spacing:.34em;text-transform:uppercase}
+  .chan{fill:var(--ink-soft);font-weight:600}
+  .chan-line{stroke:var(--ink);stroke-width:.8;stroke-dasharray:2 4;opacity:.28;fill:none;vector-effect:non-scaling-stroke}
+  .chan-node{fill:var(--ink)}
+  .fband-name{fill:var(--body-txt);font-weight:700;letter-spacing:.06em}
+  .fband-pct{fill:var(--body-txt);font-weight:600}
+  .ftitle{fill:var(--ink-faint);font-weight:700;letter-spacing:.28em;text-transform:uppercase}
+  .cli-ring{fill:var(--paper);stroke:var(--ink);stroke-width:2;vector-effect:non-scaling-stroke}
+  .cli-core{fill:var(--ink)}
+  .cli-lbl{fill:var(--ink);font-weight:700;letter-spacing:.16em;text-transform:uppercase}
+  .title-h{fill:var(--ink);font-weight:700}
+  .title-s{fill:var(--ink-soft);font-weight:600}
+
+  .slot rect{fill:rgba(255,255,255,.30);stroke:var(--hair-2);stroke-width:1.4;stroke-dasharray:5 4;rx:8;transition:.15s}
+  .slot{cursor:pointer}
+  .slot:hover rect{stroke:var(--ink-soft);fill:rgba(255,255,255,.6)}
+  .slot.filled rect{opacity:0}
+  .slot.filled{pointer-events:none}
+  .slot .s-code{fill:var(--ink-faint);font-weight:800;letter-spacing:.06em}
+  .slot .s-lab{fill:var(--ink-2);font-weight:600}
+  .slot .s-plus{fill:var(--ink-faint);font-weight:300}
+  .slot.filled text{opacity:0}
+  .anchor-ok rect{stroke:var(--sel) !important;stroke-dasharray:none !important;fill:rgba(198,154,46,.12) !important}
+
+  /* connectors */
+  .conn{stroke:var(--ink);stroke-width:2;fill:none;vector-effect:non-scaling-stroke}
+  .conn.sel{stroke:var(--sel)}
+  .conn-hit{stroke:transparent;stroke-width:16;fill:none;cursor:pointer}
+  .conn-del{cursor:pointer}
+  .conn-del circle{fill:var(--sel)}
+  .conn-del text{fill:#fff;font-weight:700;text-anchor:middle}
+
+  /* notes via foreignObject */
+  .note{cursor:grab}
+  .note.dragging{cursor:grabbing}
+  .note-body{width:100%;height:100%;background:var(--pi-yellow);color:#26251c;
+    padding:12px 12px 20px;font-size:15px;line-height:1.32;font-weight:500;position:relative;
+    box-shadow:2px 5px 12px -4px rgba(0,0,0,.32);display:flex;flex-direction:column;overflow:hidden}
+  .note-body::after{content:"";position:absolute;left:0;bottom:0;width:24px;height:24px;
+    background:linear-gradient(135deg, transparent 50%, rgba(0,0,0,.07) 50%)}
+  .note-tag{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;opacity:.5;margin-bottom:5px;line-height:1.1}
+  .note-txt{flex:1;outline:none;overflow:auto;overflow-wrap:anywhere}
+  .note-txt:empty::before{content:attr(data-ph);color:rgba(0,0,0,.3);font-style:italic}
+  .note-bar{position:absolute;top:-15px;left:50%;transform:translateX(-50%);display:none;gap:5px;align-items:center;
+    background:#1A1B1A;padding:5px 7px;border-radius:22px;box-shadow:0 4px 12px -4px rgba(0,0,0,.5)}
+  .note-body:hover .note-bar,.note.editing .note-bar{display:flex}
+  .note-bar .c{width:15px;height:15px;border-radius:50%;border:1.5px solid rgba(255,255,255,.5);cursor:pointer;padding:0}
+  .note-bar .lk{width:16px;height:16px;border:0;background:transparent;cursor:pointer;padding:0;display:grid;place-items:center}
+  .note-bar .lk svg{width:15px;height:15px;stroke:#fff;fill:none;stroke-width:2}
+  .note-bar .del{color:#fff;background:transparent;border:0;cursor:pointer;font-size:14px;line-height:1;padding:0 2px;opacity:.85}
+  .note-bar .del:hover{opacity:1}
+  .note.anchor-ok .note-body{outline:2px solid var(--sel);outline-offset:2px}
+
+  /* zoom cluster */
+  .zoombox{position:fixed;left:14px;bottom:14px;z-index:30;display:flex;align-items:center;gap:4px;
+    background:rgba(20,20,19,.95);border-radius:10px;padding:5px;box-shadow:0 8px 24px -12px rgba(0,0,0,.5)}
+  .zoombox button{width:34px;height:32px;border:0;background:rgba(255,255,255,.08);color:#F4F2EA;border-radius:7px;cursor:pointer;font-size:16px;font-weight:600}
+  .zoombox button:hover{background:rgba(255,255,255,.18)}
+  .zoombox .zlabel{min-width:52px;text-align:center;color:#F4F2EA;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;cursor:pointer}
+  .zoombox .wide{width:auto;padding:0 10px;font-size:11px;font-weight:600;letter-spacing:.03em}
+
+  /* minimap */
+  .minimap{position:fixed;right:14px;bottom:14px;z-index:30;width:224px;height:150px;
+    background:rgba(251,250,244,.94);border:1px solid var(--hair-2);border-radius:10px;overflow:hidden;
+    box-shadow:0 10px 30px -14px rgba(0,0,0,.45);cursor:pointer}
+  .minimap svg{width:100%;height:100%;display:block}
+  .mm-wing{fill:rgba(0,0,0,.04);stroke:var(--ink-soft);stroke-width:2}
+  .mm-body{fill:var(--ink)}
+  .mm-view{fill:rgba(198,154,46,.18);stroke:var(--sel);stroke-width:3}
+  .minimap .mm-label{position:absolute;top:5px;left:8px;font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)}
+
+  /* hint / help */
+  .hint{position:fixed;left:50%;top:60px;transform:translateX(-50%);z-index:35;
+    background:rgba(20,20,19,.9);color:#F4F2EA;font-size:12px;padding:8px 15px;border-radius:20px;
+    box-shadow:0 8px 24px -10px rgba(0,0,0,.6);transition:opacity .5s;pointer-events:none;max-width:90vw;text-align:center}
+  .connbadge{position:fixed;left:50%;top:60px;transform:translateX(-50%);z-index:35;display:none;
+    background:var(--sel);color:#1A1B1A;font-size:12px;font-weight:700;padding:8px 15px;border-radius:20px;box-shadow:0 8px 24px -10px rgba(0,0,0,.5)}
+  body.connect .connbadge{display:block}
+
+  @media (prefers-reduced-motion: reduce){*{transition-duration:.001ms!important}}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <span class="brand">Board Borboleta <small>· arquitetura interativa</small></span>
+  <button class="btn primary" id="addBtn">+ Post-it</button>
+  <div class="palette" id="palette"></div>
+  <span class="sep"></span>
+  <button class="btn" id="connBtn">↔ Conectar</button>
+  <button class="btn ghost" id="clearBtn">Limpar</button>
+  <span class="sep"></span>
+  <a class="link" id="a3link" href="#" target="_blank" rel="noopener">Versão A3 (impressão) ↗</a>
+</div>
+
+<div class="stage">
+  <svg id="board" xmlns="http://www.w3.org/2000/svg"></svg>
+</div>
+
+<div class="hint" id="hint">Arraste o fundo para navegar · scroll para zoom · clique num slot para colar post-it</div>
+<div class="connbadge">Modo conectar: clique em 2 itens para ligar · Esc cancela</div>
+
+<div class="zoombox">
+  <button id="zOut" title="Menos zoom">−</button>
+  <span class="zlabel" id="zLabel" title="Ir para 100%">100%</span>
+  <button id="zIn" title="Mais zoom">+</button>
+  <button class="wide" id="zFit" title="Ajustar à tela">Ajustar</button>
+</div>
+
+<div class="minimap" id="minimap">
+  <span class="mm-label">Mapa</span>
+  <svg id="mm" viewBox="-160 -80 1740 1200" preserveAspectRatio="xMidYMid meet"></svg>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const SVGNS="http://www.w3.org/2000/svg", XHTML="http://www.w3.org/1999/xhtml";
+  const svg=document.getElementById("board");
+  const mm=document.getElementById("mm");
+  const CX=710, TH=560;
+  const el=(n,a,t)=>{const e=document.createElementNS(SVGNS,n);for(const k in a)e.setAttribute(k,a[k]);if(t!=null)e.textContent=t;return e;};
+
+  /* ---------------- data (idêntico ao A3) ---------------- */
+  const ZONES={
+    out:{name:"Outbound",tag:"Você vai até o cliente",side:-1,row:"top",
+      stages:[["O1","Geração de lista"],["O2","Prospecção ativa"],["O3","Conexão"],["O4","Engajamento"],["O5","Oportunidade"]]},
+    in:{name:"Inbound",tag:"O cliente vem até você",side:1,row:"top",
+      stages:[["I1","Alcance"],["I2","Atenção"],["I3","Interesse"],["I4","Desejo"],["I5","Ação"]]},
+    ret:{name:"Retenção",tag:"Entregar o valor prometido",side:-1,row:"bot",
+      stages:[["05","Diagnóstico"],["06","Rampagem"],["07","Dados"],["08","Consolidação"],["09","Tração"]]},
+    exp:{name:"Expansão",tag:"Crescer dentro da carteira",side:1,row:"bot",
+      stages:[["10","Resultado"],["11","Upsell"],["12","Cross-sell"],["13","Recompra"],["14","Indicação"]]}
+  };
+  const FUNNEL=[["Oportunidade",100],["Qualificação",64],["Apresentação",38],["Negociação",22]];
+  const CHAN_L=["Prospecção Ativa","Reativação de Carteira","Eventos & Indicações"];
+  const CHAN_R=["Conteúdo & SEO","Mídia Paga","Redes Sociais"];
+  const FORE=[[0,0],[44,-92],[72,-174],[140,-234],[250,-282],[432,-286],[548,-246],[634,-208],[640,-30],[512,10],[356,34],[150,30],[34,6]];
+  const HIND=[[0,14],[44,78],[76,152],[142,208],[250,254],[432,258],[548,218],[630,180],[636,18],[510,-6],[352,-2],[150,10],[0,14]];
+  function petal(pts,side){let d="M "+(CX+side*pts[0][0])+" "+(TH+pts[0][1]);
+    for(let i=1;i<pts.length;i+=3){const a=pts[i],b=pts[i+1],c=pts[i+2];
+      d+=` C ${CX+side*a[0]} ${TH+a[1]}, ${CX+side*b[0]} ${TH+b[1]}, ${CX+side*c[0]} ${TH+c[1]}`;}return d+" Z";}
+  const FORE_SLOTS=[[190,-178],[336,-178],[482,-178],[268,-70],[404,-70]];
+  const HIND_SLOTS=[[268,70],[404,70],[190,178],[336,178],[482,178]];
+  const SLOT_W=128, SLOT_H=92;
+  function slotCenter(zone,i){const b=zone.row==="top"?FORE_SLOTS:HIND_SLOTS,p=b[i];return {x:CX+zone.side*p[0],y:TH+p[1]};}
+  const COLORS={yellow:"var(--pi-yellow)",pink:"var(--pi-pink)",blue:"var(--pi-blue)",green:"var(--pi-green)",white:"var(--pi-white)"};
+  const RAW={yellow:"#FCE68A",pink:"#F7BFD0",blue:"#AFD6EC",green:"#BFE3B4",white:"#FBFAF4"};
+  const NW=156, NH=132;
+
+  /* ---------------- world groups ---------------- */
+  // grid
+  const defs=el("defs",{});
+  const pat=el("pattern",{id:"grid",width:40,height:40,patternUnits:"userSpaceOnUse"});
+  pat.appendChild(el("circle",{cx:20,cy:20,r:1.3,fill:"rgba(0,0,0,.12)"}));
+  defs.appendChild(pat);
+  const arw=el("marker",{id:"arw",viewBox:"0 0 10 10",refX:9,refY:5,markerWidth:7,markerHeight:7,orient:"auto-start-reverse"});
+  arw.appendChild(el("path",{d:"M0 0 L10 5 L0 10 z",fill:"var(--ink)"}));
+  defs.appendChild(arw);
+  const arwS=el("marker",{id:"arwS",viewBox:"0 0 10 10",refX:9,refY:5,markerWidth:7,markerHeight:7,orient:"auto-start-reverse"});
+  arwS.appendChild(el("path",{d:"M0 0 L10 5 L0 10 z",fill:"var(--sel)"}));
+  defs.appendChild(arwS);
+  svg.appendChild(defs);
+
+  svg.appendChild(el("rect",{x:-8000,y:-8000,width:16000,height:16000,fill:"url(#grid)"}));
+  const gDiagram=el("g",{}); svg.appendChild(gDiagram);
+  const gConn=el("g",{}); svg.appendChild(gConn);
+  const gSlots=el("g",{}); svg.appendChild(gSlots);
+  const gNotes=el("g",{}); svg.appendChild(gNotes);
+
+  /* title block (in-world, top-left of butterfly) */
+  gDiagram.appendChild(el("text",{class:"title-h serif",x:70,y:96,"font-size":30},"Arquitetura Borboleta"));
+  gDiagram.appendChild(el("text",{class:"title-s",x:72,y:120,"font-size":12.5},"Board de trabalho · navegue, dê zoom, adicione post-its e conecte etapas"));
+
+  /* butterfly */
+  Object.values(ZONES).forEach(zone=>{
+    const pts=zone.row==="top"?FORE:HIND;
+    gDiagram.appendChild(el("path",{class:"wing",d:petal(pts,zone.side)}));
+    const tip=zone.row==="top"?[432,-286]:[432,258];
+    gDiagram.appendChild(el("path",{class:"vein",d:`M ${CX} ${TH} Q ${CX+zone.side*tip[0]*.45} ${TH+tip[1]*.55} ${CX+zone.side*tip[0]*.9} ${TH+tip[1]*.9}`}));
+    const ny=zone.row==="top"?TH-296:TH+300, nx=CX+zone.side*334;
+    gDiagram.appendChild(el("text",{class:"zoneName",x:nx,y:ny,"text-anchor":"middle","font-size":16},zone.name));
+    gDiagram.appendChild(el("text",{class:"zoneTag",x:nx,y:ny+21,"text-anchor":"middle","font-size":11.5},zone.tag));
+  });
+  gDiagram.appendChild(el("text",{class:"kicker",x:CX,y:212,"text-anchor":"middle","font-size":11},"Canais de Aquisição"));
+  function channels(list,side){list.forEach((name,i)=>{
+    const px=side<0?(CX-548+i*150):(CX+248+i*150);
+    gDiagram.appendChild(el("circle",{class:"chan-node",cx:px,cy:266,r:5}));
+    gDiagram.appendChild(el("text",{class:"chan",x:px,y:250,"text-anchor":"middle","font-size":11},name));
+    gDiagram.appendChild(el("path",{class:"chan-line",d:`M ${px} ${274} C ${px} ${330}, ${CX+side*300} ${360}, ${CX+side*300} ${430}`}));
+  });}
+  channels(CHAN_L,-1); channels(CHAN_R,1);
+  const FTOP=286,FBOT=490,WTOP=216,WBOT=82,gap=7,bandH=(FBOT-FTOP-gap*3)/4;
+  const wAt=y=>WTOP-(y-FTOP)/(FBOT-FTOP)*(WTOP-WBOT);
+  gDiagram.appendChild(el("text",{class:"ftitle",x:CX,y:FTOP-14,"text-anchor":"middle","font-size":10.5},"Funil de Vendas"));
+  FUNNEL.forEach((f,i)=>{const yt=FTOP+i*(bandH+gap),yb=yt+bandH,wt=wAt(yt)/2,wb=wAt(yb)/2;
+    gDiagram.appendChild(el("path",{fill:"var(--body)",d:`M ${CX-wt} ${yt} L ${CX+wt} ${yt} L ${CX+wb} ${yb} L ${CX-wb} ${yb} Z`}));
+    gDiagram.appendChild(el("text",{class:"fband-name",x:CX,y:yt+bandH/2-3,"text-anchor":"middle","font-size":10.5},f[0].toUpperCase()));
+    gDiagram.appendChild(el("text",{class:"fband-pct",x:CX,y:yt+bandH/2+15,"text-anchor":"middle","font-size":14},f[1]+"%"));});
+  gDiagram.appendChild(el("path",{fill:"var(--body)",d:`M ${CX-WBOT/2} ${FBOT} L ${CX+WBOT/2} ${FBOT} L ${CX+13} ${TH-16} L ${CX-13} ${TH-16} Z`}));
+  gDiagram.appendChild(el("circle",{class:"cli-ring",cx:CX,cy:TH,r:27}));
+  gDiagram.appendChild(el("circle",{class:"cli-core",cx:CX,cy:TH,r:13}));
+  gDiagram.appendChild(el("text",{class:"cli-lbl",x:CX,y:TH+52,"text-anchor":"middle","font-size":11},"Cliente"));
+
+  /* slots */
+  const slotCenters={};
+  Object.entries(ZONES).forEach(([zk,zone])=>{zone.stages.forEach((st,i)=>{
+    const c=slotCenter(zone,i); const id="slot:"+zk+i; slotCenters[id]={x:c.x,y:c.y,hw:SLOT_W/2,hh:SLOT_H/2};
+    const g=el("g",{class:"slot","data-id":id});
+    g.appendChild(el("rect",{x:c.x-SLOT_W/2,y:c.y-SLOT_H/2,width:SLOT_W,height:SLOT_H,rx:8}));
+    g.appendChild(el("text",{class:"s-code",x:c.x,y:c.y-16,"text-anchor":"middle","font-size":9},st[0]));
+    g.appendChild(el("text",{class:"s-lab",x:c.x,y:c.y+2,"text-anchor":"middle","font-size":11},st[1]));
+    g.appendChild(el("text",{class:"s-plus",x:c.x,y:c.y+24,"text-anchor":"middle","font-size":15},"+"));
+    g._slot=zk+i; g._tag=st[0]+" · "+st[1];
+    gSlots.appendChild(g);
+  });});
+
+  /* ---------------- view (viewBox pan/zoom) ---------------- */
+  const CONTENT={x:-120,y:20,w:1660,h:960}; // butterfly-ish bounds
+  let vb={x:0,y:0,w:1660,h:960};
+  function px(){return {w:svg.clientWidth||1,h:svg.clientHeight||1};}
+  function applyVB(){svg.setAttribute("viewBox",`${vb.x} ${vb.y} ${vb.w} ${vb.h}`);updateMinimap();updateZoom();}
+  function fit(){const p=px();const ar=p.w/p.h;
+    let w=CONTENT.w, h=CONTENT.h; if(w/h>ar){h=w/ar;}else{w=h*ar;} w*=1.08;h*=1.08;
+    vb={x:CONTENT.x+CONTENT.w/2-w/2, y:CONTENT.y+CONTENT.h/2-h/2, w, h}; applyVB();}
+  function setZoomAround(factor, cx, cy){
+    const p=px();
+    const wx=vb.x+(cx/p.w)*vb.w, wy=vb.y+(cy/p.h)*vb.h;
+    let nw=vb.w/factor; nw=Math.max(320,Math.min(7000,nw)); const nh=nw*(vb.h/vb.w);
+    vb.x=wx-(cx/p.w)*nw; vb.y=wy-(cy/p.h)*nh; vb.w=nw; vb.h=nh; applyVB();
+  }
+  function updateZoom(){const p=px();const z=Math.round(p.w/vb.w*100);document.getElementById("zLabel").textContent=z+"%";}
+
+  /* ---------------- persistence ---------------- */
+  const KEY="borboleta.board.v1";
+  let notes=[], conns=[], idc=1, curColor="yellow";
+  function save(){try{localStorage.setItem(KEY,JSON.stringify({notes,conns,vb}));}catch(e){}}
+  function load(){try{const d=JSON.parse(localStorage.getItem(KEY)||"null");if(d){notes=d.notes||[];conns=d.conns||[];if(d.vb)vb=d.vb;}}catch(e){}}
+
+  /* ---------------- notes ---------------- */
+  const noteEls={};
+  function noteCenter(o){return {x:o.x+NW/2,y:o.y+NH/2,hw:NW/2,hh:NH/2};}
+  function anchorBox(id){ if(id.startsWith("slot:"))return slotCenters[id];
+    const o=notes.find(n=>n.id===id); return o?noteCenter(o):null; }
+
+  function makeNote(o){
+    const g=el("g",{class:"note","data-id":o.id,transform:`translate(${o.x} ${o.y})`});
+    const fo=el("foreignObject",{width:NW,height:NH,x:0,y:0});
+    const body=document.createElementNS(XHTML,"div"); body.setAttribute("class","note-body"); body.style.background=RAW[o.color]||RAW.yellow;
+    body.innerHTML=(o.tag?'<div class="note-tag">'+esc(o.tag)+'</div>':'')
+      +'<div class="note-txt" contenteditable="true" data-ph="escreva aqui…"></div>'
+      +'<div class="note-bar">'+Object.keys(RAW).map(k=>'<button class="c" data-c="'+k+'" style="background:'+RAW[k]+'"></button>').join('')
+      +'<button class="lk" title="conectar a partir daqui"><svg viewBox="0 0 24 24"><path d="M9 15l6-6M8 11l-2 2a3 3 0 004 4l2-2M16 13l2-2a3 3 0 00-4-4l-2 2"/></svg></button>'
+      +'<button class="del" title="remover">✕</button></div>';
+    fo.appendChild(body); g.appendChild(fo); gNotes.appendChild(g);
+    noteEls[o.id]=g;
+    const txt=body.querySelector(".note-txt"); txt.textContent=o.text||"";
+    txt.addEventListener("input",()=>{o.text=txt.textContent;save();});
+    txt.addEventListener("focus",()=>g.classList.add("editing"));
+    txt.addEventListener("blur",()=>g.classList.remove("editing"));
+    body.querySelectorAll(".note-bar .c").forEach(b=>b.addEventListener("pointerdown",e=>e.stopPropagation()));
+    body.querySelectorAll(".note-bar .c").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();o.color=b.dataset.c;body.style.background=RAW[o.color];save();}));
+    const lk=body.querySelector(".lk"); lk.addEventListener("pointerdown",e=>e.stopPropagation());
+    lk.addEventListener("click",e=>{e.stopPropagation();startConnectFrom(o.id);});
+    const del=body.querySelector(".del"); del.addEventListener("pointerdown",e=>e.stopPropagation());
+    del.addEventListener("click",e=>{e.stopPropagation();removeNote(o.id);});
+    enableNoteDrag(g,o,txt);
+    return g;
+  }
+  function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+  function enableNoteDrag(g,o,txt){
+    let sx,sy,ox,oy,moved,drag=false;
+    g.addEventListener("pointerdown",e=>{
+      if(connectMode){e.stopPropagation();pickAnchor(o.id,g);return;}
+      if(g.classList.contains("editing"))return;
+      if(e.target.closest(".note-bar"))return;
+      drag=true;moved=false;const p=px();
+      sx=e.clientX;sy=e.clientY;ox=o.x;oy=o.y;
+      g.classList.add("dragging");g.setPointerCapture(e.pointerId);e.stopPropagation();
+    });
+    g.addEventListener("pointermove",e=>{if(!drag)return;
+      const scale=vb.w/(svg.clientWidth||1);
+      o.x=ox+(e.clientX-sx)*scale; o.y=oy+(e.clientY-sy)*scale;
+      if(Math.abs(e.clientX-sx)+Math.abs(e.clientY-sy)>3)moved=true;
+      g.setAttribute("transform",`translate(${o.x} ${o.y})`);renderConns();updateMinimap();});
+    const end=e=>{if(!drag)return;drag=false;g.classList.remove("dragging");try{g.releasePointerCapture(e.pointerId);}catch(_){}if(moved)save();};
+    g.addEventListener("pointerup",end);g.addEventListener("pointercancel",end);
+    g.addEventListener("dblclick",e=>{if(connectMode)return;txt.focus();
+      const r=document.createRange();r.selectNodeContents(txt);const s=getSelection();s.removeAllRanges();s.addRange(r);});
+  }
+  function addNote(o){o.id=o.id||("n"+(idc++)+"_"+Date.now().toString(36)+Math.round(performance.now()));
+    notes.push(o);if(o.slot){const s=gSlots.querySelector('[data-id="slot:'+o.slot+'"]');if(s)s.classList.add("filled");}
+    makeNote(o);save();hideHint();return o;}
+  function removeNote(id){const i=notes.findIndex(n=>n.id===id);if(i<0)return;const o=notes[i];
+    if(o.slot){const s=gSlots.querySelector('[data-id="slot:'+o.slot+'"]');if(s)s.classList.remove("filled");}
+    notes.splice(i,1);noteEls[id].remove();delete noteEls[id];
+    conns=conns.filter(c=>c.a!==id&&c.b!==id);renderConns();save();}
+
+  /* ---------------- connectors ---------------- */
+  let connectMode=false, pendingAnchor=null, selConn=null;
+  function renderConns(){
+    gConn.innerHTML="";
+    conns.forEach(c=>{
+      const A=anchorBox(c.a), B=anchorBox(c.b); if(!A||!B)return;
+      const p1=clip(A,B), p2=clip(B,A);
+      gConn.appendChild(el("path",{class:"conn-hit",d:`M ${p1.x} ${p1.y} L ${p2.x} ${p2.y}`,"data-cid":c.id}));
+      gConn.appendChild(el("path",{class:"conn"+(selConn===c.id?" sel":""),d:`M ${p1.x} ${p1.y} L ${p2.x} ${p2.y}`,
+        "marker-end":"url(#"+(selConn===c.id?"arwS":"arw")+")"}));
+      if(selConn===c.id){const mx=(p1.x+p2.x)/2,my=(p1.y+p2.y)/2;
+        const d=el("g",{class:"conn-del","data-cid":c.id});
+        d.appendChild(el("circle",{cx:mx,cy:my,r:11}));
+        d.appendChild(el("text",{x:mx,y:my+4,"font-size":13},"✕"));
+        gConn.appendChild(d);}
+    });
+  }
+  function clip(box,toward){const dx=toward.x-box.x,dy=toward.y-box.y;
+    const s=1/Math.max(Math.abs(dx)/box.hw||1e-6,Math.abs(dy)/box.hh||1e-6);
+    return {x:box.x+dx*s,y:box.y+dy*s};}
+  function startConnectFrom(id){setConnect(true);pickAnchor(id,noteEls[id]||gSlots.querySelector('[data-id="slot:'+id+'"]'));}
+  function pickAnchor(id,gEl){
+    if(!pendingAnchor){pendingAnchor=id;if(gEl)gEl.classList.add("anchor-ok");}
+    else{ if(id!==pendingAnchor){conns.push({id:"c"+(idc++)+"_"+Math.round(performance.now()),a:pendingAnchor,b:id});save();}
+      clearPending();renderConns(); }
+  }
+  function clearPending(){if(pendingAnchor){const g=noteEls[pendingAnchor]||gSlots.querySelector('[data-id="slot:'+pendingAnchor+'"]');if(g)g.classList.remove("anchor-ok");}pendingAnchor=null;}
+  function setConnect(on){connectMode=on;pendingAnchor&&clearPending();
+    svg.classList.toggle("connect",on);document.body.classList.toggle("connect",on);
+    document.getElementById("connBtn").classList.toggle("on",on);}
+  // slot click → add note OR pick anchor
+  gSlots.addEventListener("click",e=>{const g=e.target.closest(".slot");if(!g)return;
+    if(connectMode){pickAnchor(g.dataset.id,g);return;}
+    const c=slotCenters[g.dataset.id];
+    addNote({x:c.x-NW/2,y:c.y-NH/2,color:curColor,tag:g._tag,slot:g._slot,text:""});});
+  // connector selection/delete
+  gConn.addEventListener("click",e=>{
+    const del=e.target.closest(".conn-del"); if(del){conns=conns.filter(c=>c.id!==del.dataset.cid);selConn=null;renderConns();save();return;}
+    const hit=e.target.closest(".conn-hit"); if(hit){selConn=(selConn===hit.dataset.cid)?null:hit.dataset.cid;renderConns();e.stopPropagation();}
+  });
+
+  /* ---------------- pan / zoom interactions ---------------- */
+  let pan=false, psx, psy, pvx, pvy;
+  svg.addEventListener("pointerdown",e=>{
+    if(e.target.closest(".note")||e.target.closest(".slot")||e.target.closest(".conn-hit")||e.target.closest(".conn-del"))return;
+    if(connectMode){clearPending();return;}
+    selConn=null;renderConns();
+    pan=true;psx=e.clientX;psy=e.clientY;pvx=vb.x;pvy=vb.y;
+    svg.classList.add("panning");svg.setPointerCapture(e.pointerId);
+  });
+  svg.addEventListener("pointermove",e=>{if(!pan)return;const p=px();
+    vb.x=pvx-(e.clientX-psx)*(vb.w/p.w); vb.y=pvy-(e.clientY-psy)*(vb.h/p.h); applyVB();});
+  const endPan=e=>{if(!pan)return;pan=false;svg.classList.remove("panning");try{svg.releasePointerCapture(e.pointerId);}catch(_){}save();};
+  svg.addEventListener("pointerup",endPan);svg.addEventListener("pointercancel",endPan);
+  svg.addEventListener("wheel",e=>{e.preventDefault();const r=svg.getBoundingClientRect();
+    const f=e.deltaY<0?1.12:1/1.12;setZoomAround(f,e.clientX-r.left,e.clientY-r.top);save();},{passive:false});
+
+  // pinch zoom (2 pointers)
+  const active=new Map(); let pinchD=0;
+  svg.addEventListener("pointerdown",e=>{active.set(e.pointerId,e);});
+  svg.addEventListener("pointermove",e=>{if(!active.has(e.pointerId))return;active.set(e.pointerId,e);
+    if(active.size===2){const[a,b]=[...active.values()];const d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
+      const r=svg.getBoundingClientRect();const mx=(a.clientX+b.clientX)/2-r.left,my=(a.clientY+b.clientY)/2-r.top;
+      if(pinchD)setZoomAround(d/pinchD,mx,my);pinchD=d;pan=false;}});
+  const clr=e=>{active.delete(e.pointerId);if(active.size<2)pinchD=0;};
+  svg.addEventListener("pointerup",clr);svg.addEventListener("pointercancel",clr);
+
+  /* ---------------- minimap ---------------- */
+  const mmContent=el("g",{}); mm.appendChild(mmContent);
+  Object.values(ZONES).forEach(z=>mmContent.appendChild(el("path",{class:"mm-wing",d:petal(z.row==="top"?FORE:HIND,z.side)})));
+  mmContent.appendChild(el("circle",{class:"mm-body",cx:CX,cy:TH,r:26}));
+  const mmNotes=el("g",{}); mm.appendChild(mmNotes);
+  const mmView=el("rect",{class:"mm-view",x:0,y:0,width:10,height:10}); mm.appendChild(mmView);
+  function updateMinimap(){
+    mmView.setAttribute("x",vb.x);mmView.setAttribute("y",vb.y);
+    mmView.setAttribute("width",vb.w);mmView.setAttribute("height",vb.h);
+    mmNotes.innerHTML="";notes.forEach(o=>{mmNotes.appendChild(el("rect",{x:o.x,y:o.y,width:NW,height:NH,rx:8,fill:RAW[o.color]||RAW.yellow,stroke:"rgba(0,0,0,.25)","stroke-width":2}));});
+  }
+  document.getElementById("minimap").addEventListener("pointerdown",e=>{
+    const r=mm.getBoundingClientRect();
+    // mm viewBox is -160 -80 1740 1200
+    const vbx=-160,vby=-80,vbw=1740,vbh=1200;
+    const scale=Math.min(r.width/vbw,r.height/vbh);
+    const offx=(r.width-vbw*scale)/2, offy=(r.height-vbh*scale)/2;
+    const wx=vbx+(e.clientX-r.left-offx)/scale, wy=vby+(e.clientY-r.top-offy)/scale;
+    vb.x=wx-vb.w/2; vb.y=wy-vb.h/2; applyVB();save();
+  });
+
+  /* ---------------- toolbar ---------------- */
+  const pal=document.getElementById("palette");
+  Object.keys(RAW).forEach(k=>{const b=document.createElement("button");b.className="sw";b.style.background=RAW[k];b.dataset.k=k;
+    b.setAttribute("aria-pressed",k===curColor?"true":"false");b.title="Cor";
+    b.addEventListener("click",()=>{curColor=k;pal.querySelectorAll(".sw").forEach(s=>s.setAttribute("aria-pressed",s.dataset.k===k?"true":"false"));});
+    pal.appendChild(b);});
+  document.getElementById("addBtn").addEventListener("click",()=>{
+    const cx=vb.x+vb.w/2-NW/2, cy=vb.y+vb.h/2-NH/2; addNote({x:cx,y:cy,color:curColor,text:""});});
+  document.getElementById("connBtn").addEventListener("click",()=>setConnect(!connectMode));
+  document.getElementById("clearBtn").addEventListener("click",()=>{
+    if(!notes.length&&!conns.length)return;
+    if(confirm("Remover todos os post-its e conexões do board?")){
+      notes.slice().forEach(n=>removeNote(n.id));conns=[];selConn=null;renderConns();updateMinimap();save();}});
+  document.getElementById("zIn").addEventListener("click",()=>{const p=px();setZoomAround(1.25,p.w/2,p.h/2);save();});
+  document.getElementById("zOut").addEventListener("click",()=>{const p=px();setZoomAround(1/1.25,p.w/2,p.h/2);save();});
+  document.getElementById("zFit").addEventListener("click",()=>{fit();save();});
+  document.getElementById("zLabel").addEventListener("click",()=>{const p=px();const cx=vb.x+vb.w/2,cy=vb.y+vb.h/2;
+    vb.w=p.w;vb.h=p.h;vb.x=cx-vb.w/2;vb.y=cy-vb.h/2;applyVB();save();});
+  // A3 link (same-origin sibling if published under a project; fallback provided)
+  document.getElementById("a3link").href="https://fabiotgk.github.io/canvas-borboleta/";
+
+  window.addEventListener("keydown",e=>{
+    if(e.key==="Escape"){if(connectMode)setConnect(false);selConn=null;renderConns();}
+    if((e.key==="Delete"||e.key==="Backspace")&&selConn){conns=conns.filter(c=>c.id!==selConn);selConn=null;renderConns();save();}
+  });
+
+  let hintT=setTimeout(hideHint,8000);
+  function hideHint(){const h=document.getElementById("hint");if(h)h.style.opacity="0";}
+  svg.addEventListener("pointerdown",()=>clearTimeout(hintT),{once:true});
+  window.addEventListener("resize",()=>{vb.h=vb.w*((svg.clientHeight||1)/(svg.clientWidth||1));applyVB();});
+
+  /* ---------------- boot ---------------- */
+  load();
+  notes.forEach(o=>{makeNote(o);if(o.slot){const s=gSlots.querySelector('[data-id="slot:'+o.slot+'"]');if(s)s.classList.add("filled");}});
+  renderConns();
+  if(!localStorage.getItem(KEY)) fit(); else applyVB();
+  updateMinimap();
+})();
+</script>
+</body>
+</html>
