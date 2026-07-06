@@ -244,9 +244,18 @@
   const colX=zone=>CX+zone.side*COLDX;
   const colYS=zone=>zone.row==="top"?TOP_YS:BOT_YS;
   function slotCenter(zone,i){return {x:colX(zone),y:colYS(zone)[i]};}
-  // asa = lobo vertical (elipse) centrado na coluna
-  function wingPath(zone){const cx=colX(zone),ys=colYS(zone),cy=(ys[0]+ys[4])/2,ry=(ys[4]-ys[0])/2+70,rx=190,k=0.5523,ox=rx*k,oy=ry*k;
-    return `M ${cx} ${cy-ry} C ${cx+ox} ${cy-ry} ${cx+rx} ${cy-oy} ${cx+rx} ${cy} C ${cx+rx} ${cy+oy} ${cx+ox} ${cy+ry} ${cx} ${cy+ry} C ${cx-ox} ${cy+ry} ${cx-rx} ${cy+oy} ${cx-rx} ${cy} C ${cx-rx} ${cy-oy} ${cx-ox} ${cy-ry} ${cx} ${cy-ry} Z`;}
+  // asa = pétala presa ao corpo central (pontuda p/ dentro, bojo arredondado p/ fora)
+  function wingPath(zone){
+    const s=zone.side, ys=colYS(zone), y0=ys[0]-54, y4=ys[4]+54, my=(ys[0]+ys[4])/2;
+    const inX=CX+s*(zone.row==="top"?110:54);   // borda interna (encosta no corpo)
+    const coX=CX+s*COLDX;                         // sobre a coluna
+    const ouX=CX+s*566;                           // ponta externa (bojo)
+    const ctI=CX+s*(zone.row==="top"?66:16);      // controle da borda interna (concava p/ o centro)
+    return `M ${inX} ${y0}`
+         + ` C ${coX} ${y0-44} ${ouX} ${my-158} ${ouX} ${my}`
+         + ` C ${ouX} ${my+158} ${coX} ${y4+44} ${inX} ${y4}`
+         + ` C ${ctI} ${my+96} ${ctI} ${my-96} ${inX} ${y0} Z`;
+  }
   const RAW={yellow:"#FCE68A",pink:"#F7BFD0",blue:"#AFD6EC",green:"#BFE3B4",white:"#FBFAF4"};
   const NW=132, NH=104;  // post-it ~ tamanho do slot
 
