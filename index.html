@@ -195,7 +195,7 @@
 
 <div class="minimap" id="minimap">
   <span class="mm-label">Mapa</span>
-  <svg id="mm" viewBox="40 -90 1340 1520" preserveAspectRatio="xMidYMid meet"></svg>
+  <svg id="mm" viewBox="-170 -190 2140 2130" preserveAspectRatio="xMidYMid meet"></svg>
 </div>
 
 <aside class="panel" id="panel" aria-hidden="true" aria-label="Editor do post-it">
@@ -243,36 +243,26 @@
   const FUNNEL=[["Oportunidade",100],["Qualificação",64],["Apresentação",38],["Negociação",22]];
   const CHAN_L=["Prospecção Ativa","Reativação de Carteira","Eventos & Indicações"];
   const CHAN_R=["Conteúdo & SEO","Mídia Paga","Redes Sociais"];
-  // ---- layout VERTICAL: cada zona é uma coluna de 5 etapas descendo (estilo funil) ----
-  const COLDX=330, SLOT_W=132, SLOT_H=96;
-  const TOP_YS=[180,300,420,540,660], BOT_YS=[820,940,1060,1180,1300];
-  const colX=zone=>CX+zone.side*COLDX;
-  const colYS=zone=>zone.row==="top"?TOP_YS:BOT_YS;
-  function slotCenter(zone,i){return {x:colX(zone),y:colYS(zone)[i]};}
-  // asa de borboleta: presa ao corpo (cintura no centro CY), varrendo pra fora.
-  // asa de cima (forewing) = varre pra CIMA e fora, ponta alta. asa de baixo (hindwing) = desce arredondada.
-  const CY=740;                       // centro/cintura (onde fica o Cliente)
-  const X=(s,d)=>CX+s*d;              // helper: distância d p/ o lado s
-  function wingPath(zone){
-    const s=zone.side;
-    if(zone.row==="top"){
-      // asa superior (forewing): alta e varrida, ápice pontudo no topo-externo (estilo referência)
-      return `M ${X(s,44)} ${686}`                                   // junto ao corpo, na cintura
-           + ` C ${X(s,320)} ${720} ${X(s,566)} ${712} ${X(s,606)} ${566}` // borda inferior-externa
-           + ` C ${X(s,646)} ${452} ${X(s,662)} ${292} ${X(s,600)} ${190}` // borda externa sobe ao ápice
-           + ` C ${X(s,566)} ${132} ${X(s,486)} ${118} ${X(s,398)} ${122}` // ápice varrido, topo sobre a coluna
-           + ` C ${X(s,300)} ${126} ${X(s,196)} ${142} ${X(s,120)} ${214}` // topo desce em direção à cabeça
-           + ` C ${X(s,74)}  ${266} ${X(s,34)}  ${430} ${X(s,44)}  ${686} Z`; // borda interna côncava colada ao corpo
-    }
-    // asa inferior (hindwing): menor, arredondada, com recorte (escalope) na borda externa-baixa
-    return `M ${X(s,44)} ${794}`                                     // junto ao corpo, na cintura
-         + ` C ${X(s,320)} ${766} ${X(s,560)} ${842} ${X(s,590)} ${992}`  // sobe/abre à borda externa
-         + ` C ${X(s,606)} ${1096} ${X(s,592)} ${1170} ${X(s,540)} ${1210}` // externa desce
-         + ` C ${X(s,516)} ${1232} ${X(s,506)} ${1206} ${X(s,486)} ${1236}` // recorte (escalope)
-         + ` C ${X(s,452)} ${1282} ${X(s,392)} ${1362} ${X(s,300)} ${1362}` // lóbulo grande cobrindo a coluna
-         + ` C ${X(s,196)} ${1362} ${X(s,110)} ${1332} ${X(s,80)}  ${1250}` // volta à borda interna-baixa
-         + ` C ${X(s,30)}  ${1120} ${X(s,20)}  ${936}  ${X(s,44)}  ${794} Z`; // borda interna colada ao abdômen
+  // ===== BORBOLETA DE VERDADE: contorno real das asas (espaço 800), escalado p/ o board =====
+  // cada asa segura 5 cards em LEQUE, seguindo a curva (não mais coluna reta).
+  const BCX=900, BCY=900, S=3;                          // centro e escala da borboleta no board
+  const P=(x,y)=>({x:BCX+(x-400)*S, y:BCY+(y-400)*S});  // ponto do espaço-800 -> board
+  const BT=`translate(${BCX-400*S} ${BCY-400*S}) scale(${S})`; // transform do grupo da borboleta
+  const CY=BCY+(414-400)*S;                             // cintura (nó Cliente), em board
+  const MIR="matrix(-1,0,0,1,800,0)";                  // espelho horizontal (lado esquerdo)
+  // contorno das asas no espaço-800 (lado DIREITO); esquerda = mesmo path + transform MIR
+  const FORE_R="M 400 272 C 452 262 500 248 540 224 C 606 186 676 168 714 198 C 742 220 734 264 704 302 C 676 338 632 368 582 388 C 528 408 460 416 428 420 C 410 421 404 410 402 392 Z";
+  const HIND_R="M 404 426 C 458 422 530 430 588 458 C 662 494 704 550 692 606 C 684 644 654 670 614 676 C 592 679 578 664 568 678 C 550 702 514 718 488 702 C 462 686 448 638 436 594 C 424 550 410 486 404 448 Z";
+  const wingD=zone=>zone.row==="top"?FORE_R:HIND_R;
+  // âncoras dos 5 slots dentro da asa (espaço-800, lado direito), ordem etapa 1 -> 5
+  const FORE_A=[[652,220],[606,258],[560,298],[512,338],[460,378]]; // ápice -> cintura
+  const HIND_A=[[466,478],[528,510],[582,552],[606,602],[576,648]]; // cintura -> lóbulo
+  function slotCenter(zone,i){
+    const a=(zone.row==="top"?FORE_A:HIND_A)[i];
+    const lx=zone.side===1?a[0]:800-a[0];
+    return P(lx,a[1]);
   }
+  const SLOT_W=126, SLOT_H=100;
   const RAW={yellow:"#FCE68A",pink:"#F7BFD0",blue:"#AFD6EC",green:"#BFE3B4",white:"#FBFAF4"};
   const NW=132, NH=104;  // post-it ~ tamanho do slot
 
@@ -293,71 +283,63 @@
   const gNotes=el("g",{}); svg.appendChild(gNotes);
   const gConnUI=el("g",{}); svg.appendChild(gConnUI); // ✕ dos conectores — acima dos cards, sempre clicável
 
-  gDiagram.appendChild(el("text",{class:"title-h serif",x:CX-COLDX-190,y:-62,"font-size":30},"Arquitetura Borboleta"));
-  gDiagram.appendChild(el("text",{class:"title-s",x:CX-COLDX-188,y:-40,"font-size":12.5},"Board de trabalho · as etapas descem em ordem (funil) · escreva, conecte, dê zoom"));
+  gDiagram.appendChild(el("text",{class:"title-h serif",x:-150,y:-96,"font-size":34},"Arquitetura Borboleta"));
+  gDiagram.appendChild(el("text",{class:"title-s",x:-148,y:-70,"font-size":14},"Board de trabalho · os cards seguem a curva das asas · escreva, conecte, dê zoom"));
 
-  const FTOP=175,FBOT=650,WTOP=196,WBOT=78,gap=8,bandH=(FBOT-FTOP-gap*3)/4;
   const ZC={out:"#D2913A",in:"#4C8DB6",ret:"#55976A",exp:"#97609F"}; // cor de cada zona (preenchimento)
+  // grupo escalado que contém TODA a borboleta (asas, corpo, antenas)
+  const gBfly=el("g",{transform:BT}); gDiagram.appendChild(gBfly);
   const mainWings={};
+  // asas (outline; se colorem conforme as etapas são preenchidas). esquerda = espelho.
   Object.entries(ZONES).forEach(([zk,zone])=>{
-    const cx=colX(zone),ys=colYS(zone);
-    const wp=el("path",{class:"wing",d:wingPath(zone),fill:ZC[zk],"fill-opacity":0});
-    gDiagram.appendChild(wp);mainWings[zk]=wp;
-    // espinha vertical (o fluxo descendo) ligando as 5 etapas
-    gDiagram.appendChild(el("path",{class:"vein",d:`M ${cx} ${ys[0]} L ${cx} ${ys[4]}`}));
-    // liga a asa ao cliente (extremidade voltada ao centro)
-    const inner=zone.row==="top"?ys[4]:ys[0];
-    gDiagram.appendChild(el("path",{class:"vein",d:`M ${cx} ${inner} Q ${cx} ${TH} ${CX} ${TH}`}));
-    // nome da zona (topo das asas de cima, base das asas de baixo)
-    const ny=zone.row==="top"?ys[0]-96:ys[4]+96;
-    gDiagram.appendChild(el("text",{class:"zoneName",x:cx,y:ny,"text-anchor":"middle","font-size":16},zone.name));
-    gDiagram.appendChild(el("text",{class:"zoneTag",x:cx,y:ny+19,"text-anchor":"middle","font-size":11.5},zone.tag));
+    const a={class:"wing",d:wingD(zone),fill:ZC[zk],"fill-opacity":0};
+    if(zone.side===-1)a.transform=MIR;
+    const wp=el("path",a); gBfly.appendChild(wp); mainWings[zk]=wp;
+  });
+  // nervuras decorativas (leves) dentro das asas — os dois lados
+  const VEINS=["M 424 352 C 500 316 586 286 668 232","M 440 600 C 500 582 560 562 620 590"];
+  [1,-1].forEach(sd=>VEINS.forEach(d=>{const a={class:"vein",d};if(sd===-1)a.transform=MIR;gBfly.appendChild(el("path",a));}));
+
+  // ---- corpo da borboleta (espaço-800): antenas + fuso (tórax->abdômen) + cabeça ----
+  const bodyPath="M 400 168 C 424 186 434 214 434 254 C 434 310 430 360 418 400 C 415 410 414 412 414 418 C 415 448 420 500 424 544 C 425 588 418 624 402 652 C 386 624 379 588 376 544 C 380 500 385 448 386 418 C 386 412 385 410 382 400 C 370 360 366 310 366 254 C 366 214 376 186 400 168 Z";
+  gBfly.appendChild(el("path",{class:"antenna",d:"M 392 168 C 366 128 330 126 306 96"}));
+  gBfly.appendChild(el("path",{class:"antenna",d:"M 408 168 C 434 128 470 126 494 96"}));
+  gBfly.appendChild(el("circle",{class:"antenna-dot",cx:302,cy:90,r:7}));
+  gBfly.appendChild(el("circle",{class:"antenna-dot",cx:498,cy:90,r:7}));
+  gBfly.appendChild(el("path",{class:"bodyshape",d:bodyPath}));
+  gBfly.appendChild(el("circle",{class:"bodyshape",cx:400,cy:176,r:17}));
+  // funil de vendas dentro do tórax (as % vão descendo)
+  const FBANDS=[252,292,332,372];
+  gBfly.appendChild(el("text",{class:"ftitle",x:400,y:224,"text-anchor":"middle","font-size":6.5},"FUNIL"));
+  FUNNEL.forEach((f,i)=>{const cy=FBANDS[i];
+    if(i>0)gBfly.appendChild(el("line",{class:"fsep",x1:372,y1:cy-15,x2:428,y2:cy-15}));
+    gBfly.appendChild(el("text",{class:"fband-name",x:400,y:cy-2,"text-anchor":"middle","font-size":6},f[0].toUpperCase()));
+    gBfly.appendChild(el("text",{class:"fband-pct",x:400,y:cy+9,"text-anchor":"middle","font-size":9.5},f[1]+"%"));});
+  // segmentos do abdômen
+  [470,506,542,578].forEach(y=>gBfly.appendChild(el("line",{class:"abseg",x1:388,y1:y,x2:412,y2:y})));
+  // Cliente = cintura (o encontro das asas)
+  gBfly.appendChild(el("circle",{class:"cli-ring",cx:400,cy:414,r:15}));
+  gBfly.appendChild(el("circle",{class:"cli-core",cx:400,cy:414,r:7}));
+  gBfly.appendChild(el("text",{class:"cli-lbl",x:400,y:441,"text-anchor":"middle","font-size":6.6,fill:"var(--body-txt)"},"CLIENTE"));
+
+  // nome de cada zona (em board, fora da asa)
+  Object.entries(ZONES).forEach(([zk,zone])=>{
+    const top=zone.row==="top";
+    const lx=zone.side===1?(top?700:600):(top?100:200), ly=top?126:706;
+    const c=P(lx,ly);
+    gDiagram.appendChild(el("text",{class:"zoneName",x:c.x,y:c.y,"text-anchor":"middle","font-size":26},zone.name));
+    gDiagram.appendChild(el("text",{class:"zoneTag",x:c.x,y:c.y+26,"text-anchor":"middle","font-size":15},zone.tag));
   });
 
-  // canais de aquisição (topo)
-  gDiagram.appendChild(el("text",{class:"kicker",x:CX,y:-18,"text-anchor":"middle","font-size":11},"Canais de Aquisição"));
+  // canais de aquisição (topo) — apontam p/ as asas de cima
+  gDiagram.appendChild(el("text",{class:"kicker",x:BCX,y:P(400,44).y,"text-anchor":"middle","font-size":15},"Canais de Aquisição"));
   function channels(list,side){list.forEach((name,i)=>{
-    const px=CX+side*(190+i*150), tx=CX+side*COLDX;
-    gDiagram.appendChild(el("circle",{class:"chan-node",cx:px,cy:22,r:5}));
-    gDiagram.appendChild(el("text",{class:"chan",x:px,y:6,"text-anchor":"middle","font-size":11},name));
-    gDiagram.appendChild(el("path",{class:"chan-line",d:`M ${px} ${30} C ${px} ${68}, ${tx} ${70}, ${tx} ${112}`}));
+    const nx=BCX+side*(360+i*250), ny=P(400,88).y, t=P(side===1?556:244,214);
+    gDiagram.appendChild(el("circle",{class:"chan-node",cx:nx,cy:ny,r:6}));
+    gDiagram.appendChild(el("text",{class:"chan",x:nx,y:ny-18,"text-anchor":"middle","font-size":14},name));
+    gDiagram.appendChild(el("path",{class:"chan-line",d:`M ${nx} ${ny+14} C ${nx} ${ny+120} ${t.x} ${t.y-120} ${t.x} ${t.y}`}));
   });}
   channels(CHAN_L,-1); channels(CHAN_R,1);
-
-  // ---- corpo da borboleta: cabeça + antenas + fuso (tórax->abdômen) ----
-  // fuso vertical: estreito no pescoço, bojo no tórax, cintura no CY, bojo no abdômen, ponta embaixo
-  const bodyPath =
-      `M ${CX} 1380`
-    + ` C ${CX-8} 1300 ${CX-40} 1170 ${CX-44} 960`
-    + ` C ${CX-46} 858 ${CX-30} 800 ${CX-24} 740`
-    + ` C ${CX-32} 676 ${CX-50} 596 ${CX-50} 468`
-    + ` C ${CX-50} 330 ${CX-42} 236 ${CX-16} 182`
-    + ` C ${CX-8} 166 ${CX+8} 166 ${CX+16} 182`
-    + ` C ${CX+42} 236 ${CX+50} 330 ${CX+50} 468`
-    + ` C ${CX+50} 596 ${CX+32} 676 ${CX+24} 740`
-    + ` C ${CX+30} 800 ${CX+46} 858 ${CX+44} 960`
-    + ` C ${CX+40} 1170 ${CX+8} 1300 ${CX} 1380 Z`;
-  // antenas (saem da cabeça, sobem e abrem em clava)
-  gDiagram.appendChild(el("path",{class:"antenna",d:`M ${CX-5} 158 C ${CX-30} 116 ${CX-74} 118 ${CX-104} 88`}));
-  gDiagram.appendChild(el("path",{class:"antenna",d:`M ${CX+5} 158 C ${CX+30} 116 ${CX+74} 118 ${CX+104} 88`}));
-  gDiagram.appendChild(el("circle",{class:"antenna-dot",cx:CX-108,cy:82,r:6}));
-  gDiagram.appendChild(el("circle",{class:"antenna-dot",cx:CX+108,cy:82,r:6}));
-  // corpo + cabeça
-  gDiagram.appendChild(el("path",{class:"bodyshape",d:bodyPath}));
-  gDiagram.appendChild(el("circle",{class:"bodyshape",cx:CX,cy:150,r:17}));
-  // funil de vendas dentro do tórax (as % vão descendo)
-  const FBANDS=[245,360,475,590];
-  gDiagram.appendChild(el("text",{class:"ftitle",x:CX,y:200,"text-anchor":"middle","font-size":9},"FUNIL"));
-  FUNNEL.forEach((f,i)=>{const cy=FBANDS[i];
-    if(i>0)gDiagram.appendChild(el("line",{class:"fsep",x1:CX-40,y1:cy-32,x2:CX+40,y2:cy-32}));
-    gDiagram.appendChild(el("text",{class:"fband-name",x:CX,y:cy-4,"text-anchor":"middle","font-size":8.5},f[0].toUpperCase()));
-    gDiagram.appendChild(el("text",{class:"fband-pct",x:CX,y:cy+13,"text-anchor":"middle","font-size":13},f[1]+"%"));});
-  // segmentos do abdômen (detalhe de borboleta)
-  [1000,1080,1160,1240].forEach(y=>gDiagram.appendChild(el("line",{class:"abseg",x1:CX-((y<1120)?30:20),y1:y,x2:CX+((y<1120)?30:20),y2:y})));
-  // Cliente = centro/cintura (o encontro das asas)
-  gDiagram.appendChild(el("circle",{class:"cli-ring",cx:CX,cy:CY,r:24}));
-  gDiagram.appendChild(el("circle",{class:"cli-core",cx:CX,cy:CY,r:11}));
-  gDiagram.appendChild(el("text",{class:"cli-lbl",x:CX,y:CY+40,"text-anchor":"middle","font-size":9.5,fill:"var(--body-txt)"},"CLIENTE"));
 
   const slotCenters={};
   Object.entries(ZONES).forEach(([zk,zone])=>{zone.stages.forEach((st,i)=>{
@@ -372,8 +354,8 @@
   });});
 
   /* ---------- view ---------- */
-  const CONTENT={x:40,y:-90,w:1340,h:1520};
-  let vb={x:40,y:-90,w:1340,h:1520};
+  const CONTENT={x:-170,y:-190,w:2140,h:2130};
+  let vb={x:-170,y:-190,w:2140,h:2130};
   const px=()=>({w:svg.clientWidth||1,h:svg.clientHeight||1});
   function applyVB(){svg.setAttribute("viewBox",`${vb.x} ${vb.y} ${vb.w} ${vb.h}`);updateMinimap();updateZoom();}
   function fit(){const p=px();const ar=p.w/p.h;let w=CONTENT.w,h=CONTENT.h;if(w/h>ar)h=w/ar;else w=h*ar;w*=1.08;h*=1.08;
@@ -386,7 +368,7 @@
   const scale=()=>vb.w/(svg.clientWidth||1);
 
   /* ---------- state ---------- */
-  const KEY="borboleta.board.v2";
+  const KEY="borboleta.board.v3";
   let notes=[], conns=[], idc=1, curColor="yellow";
   const save=()=>{try{localStorage.setItem(KEY,JSON.stringify({notes,conns,vb}));}catch(e){}};
   const load=()=>{try{const d=JSON.parse(localStorage.getItem(KEY)||"null");if(d){notes=d.notes||[];conns=d.conns||[];if(d.vb)vb=d.vb;}}catch(e){}};
@@ -570,15 +552,20 @@
   const mmContent=el("g",{});mm.appendChild(mmContent);
   // asas verticais (se colorem conforme as etapas são preenchidas)
   const mmWings={};
-  Object.entries(ZONES).forEach(([zk,z])=>{const p=el("path",{class:"mm-wing",d:wingPath(z),fill:ZC[zk],"fill-opacity":0.06});mmContent.appendChild(p);mmWings[zk]=p;});
-  // corpo = fuso (tórax->abdômen) + cabeça + antenas
-  mmContent.appendChild(el("path",{class:"mm-antenna",d:`M ${CX-5} 158 C ${CX-30} 116 ${CX-74} 118 ${CX-104} 88`}));
-  mmContent.appendChild(el("path",{class:"mm-antenna",d:`M ${CX+5} 158 C ${CX+30} 116 ${CX+74} 118 ${CX+104} 88`}));
-  mmContent.appendChild(el("circle",{class:"mm-antenna-dot",cx:CX-108,cy:82,r:6}));
-  mmContent.appendChild(el("circle",{class:"mm-antenna-dot",cx:CX+108,cy:82,r:6}));
-  mmContent.appendChild(el("path",{class:"mm-body",d:bodyPath}));
-  mmContent.appendChild(el("circle",{class:"mm-body",cx:CX,cy:150,r:17}));
-  mmContent.appendChild(el("circle",{class:"mm-ring",cx:CX,cy:CY,r:22}));
+  const mmBfly=el("g",{transform:BT}); mmContent.appendChild(mmBfly);
+  Object.entries(ZONES).forEach(([zk,z])=>{
+    const a={class:"mm-wing",d:wingD(z),fill:ZC[zk],"fill-opacity":0.06};
+    if(z.side===-1)a.transform=MIR;
+    const p=el("path",a); mmBfly.appendChild(p); mmWings[zk]=p;
+  });
+  // corpo = fuso + cabeça + antenas (mesmo espaço-800)
+  mmBfly.appendChild(el("path",{class:"mm-antenna",d:"M 392 168 C 366 128 330 126 306 96"}));
+  mmBfly.appendChild(el("path",{class:"mm-antenna",d:"M 408 168 C 434 128 470 126 494 96"}));
+  mmBfly.appendChild(el("circle",{class:"mm-antenna-dot",cx:302,cy:90,r:7}));
+  mmBfly.appendChild(el("circle",{class:"mm-antenna-dot",cx:498,cy:90,r:7}));
+  mmBfly.appendChild(el("path",{class:"mm-body",d:bodyPath}));
+  mmBfly.appendChild(el("circle",{class:"mm-body",cx:400,cy:176,r:17}));
+  mmBfly.appendChild(el("circle",{class:"mm-ring",cx:400,cy:414,r:13}));
   const mmNotes=el("g",{});mm.appendChild(mmNotes);
   const mmView=el("rect",{class:"mm-view",x:0,y:0,width:10,height:10});mm.appendChild(mmView);
   function updateMinimap(){mmView.setAttribute("x",vb.x);mmView.setAttribute("y",vb.y);mmView.setAttribute("width",vb.w);mmView.setAttribute("height",vb.h);
@@ -598,7 +585,7 @@
     document.getElementById("minimap").classList.toggle("done",total>=20);
   }
   document.getElementById("minimap").addEventListener("pointerdown",e=>{const r=mm.getBoundingClientRect();
-    const vbx=40,vby=-90,vbw=1340,vbh=1520,sc=Math.min(r.width/vbw,r.height/vbh);
+    const vbx=-170,vby=-190,vbw=2140,vbh=2130,sc=Math.min(r.width/vbw,r.height/vbh);
     const offx=(r.width-vbw*sc)/2,offy=(r.height-vbh*sc)/2;
     vb.x=(vbx+(e.clientX-r.left-offx)/sc)-vb.w/2;vb.y=(vby+(e.clientY-r.top-offy)/sc)-vb.h/2;applyVB();save();});
 
