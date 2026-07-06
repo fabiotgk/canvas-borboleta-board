@@ -9,7 +9,7 @@
   :root{
     --paper:#F4F2EA; --paper-2:#FBFAF4; --ink:#1A1B1A; --ink-2:#3C3D3B;
     --ink-soft:#6E6F6B; --ink-faint:#9A9B95; --hair:#CFCCC0; --hair-2:#B7B5A7;
-    --body:#1A1B1A; --body-txt:#F7F5ED; --sel:#C69A2E;
+    --body:#1A1B1A; --body-txt:#F7F5ED; --sel:#C69A2E; --conn:#51617D;
     --pi-yellow:#FCE68A; --pi-pink:#F7BFD0; --pi-blue:#AFD6EC; --pi-green:#BFE3B4; --pi-white:#FBFAF4;
     font-family:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
   }
@@ -68,14 +68,14 @@
   .slot.droptarget rect{stroke:var(--sel)!important;stroke-dasharray:none!important;fill:rgba(198,154,46,.16)!important;opacity:1!important}
 
   /* connectors */
-  .conn{stroke:var(--ink);stroke-width:2.4;fill:none;vector-effect:non-scaling-stroke;transition:stroke .12s}
-  .conn.sel{stroke:var(--sel)}
+  .conn{stroke-width:2.4;fill:none;vector-effect:non-scaling-stroke;transition:stroke-width .12s}
+  .conn.hot{stroke-width:3.6}
   .conn-hit{stroke:transparent;stroke-width:22;fill:none;cursor:pointer}
-  .conn-del{opacity:0;pointer-events:none;transition:opacity .12s;cursor:pointer}
-  .conn-del.show{opacity:1;pointer-events:auto}
-  .conn-del circle{fill:var(--sel)}
-  .conn-del text{fill:#fff;font-weight:700;text-anchor:middle}
-  #temp{stroke:var(--sel);stroke-width:2.4;stroke-dasharray:6 5;fill:none;vector-effect:non-scaling-stroke;pointer-events:none}
+  .conn-pill{opacity:0;pointer-events:none;transition:opacity .12s}
+  .conn-pill.show{opacity:1;pointer-events:auto}
+  .conn-pill .cc{cursor:pointer;transition:.1s}
+  .conn-pill .cx{cursor:pointer;font-weight:700;text-anchor:middle;fill:#fff}
+  #temp{stroke:var(--conn);stroke-width:2.4;stroke-dasharray:6 5;fill:none;vector-effect:non-scaling-stroke;pointer-events:none}
 
   /* notes */
   .note-body{width:100%;height:100%;display:flex;flex-direction:column;position:relative;
@@ -255,9 +255,9 @@
   const pat=el("pattern",{id:"grid",width:40,height:40,patternUnits:"userSpaceOnUse"});
   pat.appendChild(el("circle",{cx:20,cy:20,r:1.3,fill:"rgba(0,0,0,.11)"}));
   defs.appendChild(pat);
-  [["arw","var(--ink)"],["arwS","var(--sel)"]].forEach(([id,col])=>{
-    const m=el("marker",{id,viewBox:"0 0 10 10",refX:9,refY:5,markerWidth:7,markerHeight:7,orient:"auto-start-reverse"});
-    m.appendChild(el("path",{d:"M0 0 L10 5 L0 10 z",fill:col}));defs.appendChild(m);});
+  const arw=el("marker",{id:"arw",viewBox:"0 0 10 10",refX:9,refY:5,markerWidth:7,markerHeight:7,orient:"auto-start-reverse"});
+  arw.appendChild(el("path",{d:"M0 0 L10 5 L0 10 z",fill:"context-stroke"}));  // ponta acompanha a cor da seta
+  defs.appendChild(arw);
   svg.appendChild(defs);
   svg.appendChild(el("rect",{x:-8000,y:-8000,width:16000,height:16000,fill:"url(#grid)"}));
   const gDiagram=el("g",{}); svg.appendChild(gDiagram);
@@ -404,22 +404,33 @@
   let selConn=null;
   function clip(box,toward){const dx=toward.x-box.x,dy=toward.y-box.y;
     const s=1/Math.max(Math.abs(dx)/box.hw||1e-6,Math.abs(dy)/box.hh||1e-6);return {x:box.x+dx*s,y:box.y+dy*s};}
+  const DEFAULT_CONN="#51617D";
+  const CONN_COLORS=["#51617D","#4E5AA8","#2E8B8B","#4E8A63","#C0812F","#1A1B1A"]; // ardósia, índigo, teal, verde, âmbar, preto
   function renderConns(){gConn.innerHTML="";gConnUI.innerHTML="";conns.forEach(c=>{const A=anchorBox(c.a),B=anchorBox(c.b);if(!A||!B)return;
-    const p1=clip(A,B),p2=clip(B,A),mx=(p1.x+p2.x)/2,my=(p1.y+p2.y)/2,sel=selConn===c.id;
+    const p1=clip(A,B),p2=clip(B,A),mx=(p1.x+p2.x)/2,my=(p1.y+p2.y)/2,sel=selConn===c.id,col=c.color||DEFAULT_CONN;
     const hit=el("path",{class:"conn-hit",d:`M ${p1.x} ${p1.y} L ${p2.x} ${p2.y}`,"data-cid":c.id});
-    const line=el("path",{class:"conn"+(sel?" sel":""),d:`M ${p1.x} ${p1.y} L ${p2.x} ${p2.y}`,"marker-end":"url(#"+(sel?"arwS":"arw")+")"});
+    const line=el("path",{class:"conn"+(sel?" hot":""),d:`M ${p1.x} ${p1.y} L ${p2.x} ${p2.y}`,stroke:col,"marker-end":"url(#arw)"});
     gConn.appendChild(hit);gConn.appendChild(line);
-    const del=el("g",{class:"conn-del"+(sel?" show":""),"data-cid":c.id});
-    del.appendChild(el("circle",{cx:mx,cy:my,r:12}));del.appendChild(el("text",{x:mx,y:my+4,"font-size":13},"✕"));
-    gConnUI.appendChild(del);
-    const show=()=>{line.classList.add("sel");line.setAttribute("marker-end","url(#arwS)");del.classList.add("show");};
-    const hide=()=>{if(selConn===c.id)return;line.classList.remove("sel");line.setAttribute("marker-end","url(#arw)");del.classList.remove("show");};
+    const n=CONN_COLORS.length,cell=18,W=12+(n+1)*cell;
+    const pill=el("g",{class:"conn-pill"+(sel?" show":"")});
+    pill.appendChild(el("rect",{x:mx-W/2,y:my-13,width:W,height:26,rx:13,fill:"#1A1B1A"}));
+    CONN_COLORS.forEach((cc,i)=>{pill.appendChild(el("circle",{class:"cc",cx:mx-W/2+12+i*cell,cy:my,r:6.5,fill:cc,
+      stroke:cc===col?"#fff":"rgba(255,255,255,.5)","stroke-width":cc===col?2:1,"data-cid":c.id,"data-col":cc}));});
+    const xx=mx-W/2+12+n*cell;
+    pill.appendChild(el("line",{x1:xx-7,y1:my-8,x2:xx-7,y2:my+8,stroke:"rgba(255,255,255,.22)","stroke-width":1}));
+    pill.appendChild(el("text",{class:"cx",x:xx+3,y:my+4,"data-cid":c.id,"font-size":13},"✕"));
+    gConnUI.appendChild(pill);
+    const show=()=>{line.classList.add("hot");pill.classList.add("show");};
+    const hide=()=>{if(selConn===c.id)return;line.classList.remove("hot");pill.classList.remove("show");};
     hit.addEventListener("mouseenter",show);hit.addEventListener("mouseleave",hide);
-    del.addEventListener("mouseenter",show);del.addEventListener("mouseleave",hide);});}
+    pill.addEventListener("mouseenter",show);pill.addEventListener("mouseleave",hide);});}
   gConn.addEventListener("click",e=>{const hit=e.target.closest(".conn-hit");if(!hit)return;const cid=hit.dataset.cid;
     selConn=selConn===cid?null:cid;renderConns();e.stopPropagation();});
-  gConnUI.addEventListener("click",e=>{const del=e.target.closest(".conn-del");if(!del)return;
-    conns=conns.filter(c=>c.id!==del.dataset.cid);selConn=null;renderConns();if(selectedId)renderPanelConns();save();e.stopPropagation();});
+  gConnUI.addEventListener("click",e=>{
+    const dot=e.target.closest(".cc");
+    if(dot){const c=conns.find(x=>x.id===dot.dataset.cid);if(c){c.color=dot.dataset.col;selConn=c.id;renderConns();save();}e.stopPropagation();return;}
+    const cx=e.target.closest(".cx");
+    if(cx){conns=conns.filter(x=>x.id!==cx.dataset.cid);selConn=null;renderConns();if(selectedId)renderPanelConns();save();e.stopPropagation();return;}});
 
   // drag-to-connect (draw.io style)
   let connecting=null;
@@ -479,7 +490,7 @@
   let pan=false,psx,psy,pvx,pvy;
   svg.addEventListener("pointerdown",e=>{
     if(connecting)return;
-    if(e.target.closest(".note")||e.target.closest(".slot")||e.target.closest(".conn-hit")||e.target.closest(".conn-del"))return;
+    if(e.target.closest(".note")||e.target.closest(".slot")||e.target.closest(".conn-hit")||e.target.closest(".conn-pill"))return;
     selConn=null;renderConns();closePanel();
     pan=true;psx=e.clientX;psy=e.clientY;pvx=vb.x;pvy=vb.y;svg.classList.add("panning");svg.setPointerCapture(e.pointerId);});
   svg.addEventListener("pointermove",e=>{if(!pan)return;const p=px();vb.x=pvx-(e.clientX-psx)*vb.w/p.w;vb.y=pvy-(e.clientY-psy)*vb.h/p.h;applyVB();});
