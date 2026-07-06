@@ -111,7 +111,7 @@
   .zoombox .zlabel{min-width:52px;text-align:center;color:#F4F2EA;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;cursor:pointer}
   .zoombox .wide{width:auto;padding:0 10px;font-size:11px;font-weight:600}
 
-  .minimap{position:fixed;right:14px;bottom:14px;z-index:30;width:220px;height:150px;
+  .minimap{position:fixed;right:14px;bottom:14px;z-index:30;width:150px;height:208px;
     background:rgba(251,250,244,.94);border:1px solid var(--hair-2);border-radius:10px;overflow:hidden;
     box-shadow:0 10px 30px -14px rgba(0,0,0,.45);cursor:pointer}
   .minimap svg{width:100%;height:100%;display:block}
@@ -190,7 +190,7 @@
 
 <div class="minimap" id="minimap">
   <span class="mm-label">Mapa</span>
-  <svg id="mm" viewBox="-160 -80 1740 1200" preserveAspectRatio="xMidYMid meet"></svg>
+  <svg id="mm" viewBox="150 -90 1120 1530" preserveAspectRatio="xMidYMid meet"></svg>
 </div>
 
 <aside class="panel" id="panel" aria-hidden="true" aria-label="Editor do post-it">
@@ -222,7 +222,7 @@
   "use strict";
   const SVGNS="http://www.w3.org/2000/svg", XHTML="http://www.w3.org/1999/xhtml";
   const svg=document.getElementById("board"), mm=document.getElementById("mm");
-  const CX=710, TH=560;
+  const CX=710, TH=740;
   const el=(n,a,t)=>{const e=document.createElementNS(SVGNS,n);for(const k in a)e.setAttribute(k,a[k]);if(t!=null)e.textContent=t;return e;};
 
   const ZONES={
@@ -238,15 +238,15 @@
   const FUNNEL=[["Oportunidade",100],["Qualificação",64],["Apresentação",38],["Negociação",22]];
   const CHAN_L=["Prospecção Ativa","Reativação de Carteira","Eventos & Indicações"];
   const CHAN_R=["Conteúdo & SEO","Mídia Paga","Redes Sociais"];
-  const FORE=[[0,0],[44,-92],[72,-174],[140,-234],[250,-282],[432,-286],[548,-246],[634,-208],[640,-30],[512,10],[356,34],[150,30],[34,6]];
-  const HIND=[[0,14],[44,78],[76,152],[142,208],[250,254],[432,258],[548,218],[630,180],[636,18],[510,-6],[352,-2],[150,10],[0,14]];
-  function petal(pts,side){let d="M "+(CX+side*pts[0][0])+" "+(TH+pts[0][1]);
-    for(let i=1;i<pts.length;i+=3){const a=pts[i],b=pts[i+1],c=pts[i+2];
-      d+=` C ${CX+side*a[0]} ${TH+a[1]}, ${CX+side*b[0]} ${TH+b[1]}, ${CX+side*c[0]} ${TH+c[1]}`;}return d+" Z";}
-  const FORE_SLOTS=[[190,-178],[336,-178],[482,-178],[268,-70],[404,-70]];
-  const HIND_SLOTS=[[268,70],[404,70],[190,178],[336,178],[482,178]];
-  const SLOT_W=128, SLOT_H=92;
-  function slotCenter(zone,i){const b=zone.row==="top"?FORE_SLOTS:HIND_SLOTS,p=b[i];return {x:CX+zone.side*p[0],y:TH+p[1]};}
+  // ---- layout VERTICAL: cada zona é uma coluna de 5 etapas descendo (estilo funil) ----
+  const COLDX=330, SLOT_W=132, SLOT_H=96;
+  const TOP_YS=[180,300,420,540,660], BOT_YS=[820,940,1060,1180,1300];
+  const colX=zone=>CX+zone.side*COLDX;
+  const colYS=zone=>zone.row==="top"?TOP_YS:BOT_YS;
+  function slotCenter(zone,i){return {x:colX(zone),y:colYS(zone)[i]};}
+  // asa = lobo vertical (elipse) centrado na coluna
+  function wingPath(zone){const cx=colX(zone),ys=colYS(zone),cy=(ys[0]+ys[4])/2,ry=(ys[4]-ys[0])/2+70,rx=190,k=0.5523,ox=rx*k,oy=ry*k;
+    return `M ${cx} ${cy-ry} C ${cx+ox} ${cy-ry} ${cx+rx} ${cy-oy} ${cx+rx} ${cy} C ${cx+rx} ${cy+oy} ${cx+ox} ${cy+ry} ${cx} ${cy+ry} C ${cx-ox} ${cy+ry} ${cx-rx} ${cy+oy} ${cx-rx} ${cy} C ${cx-rx} ${cy-oy} ${cx-ox} ${cy-ry} ${cx} ${cy-ry} Z`;}
   const RAW={yellow:"#FCE68A",pink:"#F7BFD0",blue:"#AFD6EC",green:"#BFE3B4",white:"#FBFAF4"};
   const NW=132, NH=104;  // post-it ~ tamanho do slot
 
@@ -267,30 +267,38 @@
   const gNotes=el("g",{}); svg.appendChild(gNotes);
   const gConnUI=el("g",{}); svg.appendChild(gConnUI); // ✕ dos conectores — acima dos cards, sempre clicável
 
-  gDiagram.appendChild(el("text",{class:"title-h serif",x:70,y:96,"font-size":30},"Arquitetura Borboleta"));
-  gDiagram.appendChild(el("text",{class:"title-s",x:72,y:120,"font-size":12.5},"Board de trabalho · clique numa etapa e escreva, conecte, dê zoom"));
+  gDiagram.appendChild(el("text",{class:"title-h serif",x:CX-COLDX-190,y:-62,"font-size":30},"Arquitetura Borboleta"));
+  gDiagram.appendChild(el("text",{class:"title-s",x:CX-COLDX-188,y:-40,"font-size":12.5},"Board de trabalho · as etapas descem em ordem (funil) · escreva, conecte, dê zoom"));
 
+  const FTOP=175,FBOT=650,WTOP=196,WBOT=78,gap=8,bandH=(FBOT-FTOP-gap*3)/4;
   const ZC={out:"#D2913A",in:"#4C8DB6",ret:"#55976A",exp:"#97609F"}; // cor de cada zona (preenchimento)
   const mainWings={};
   Object.entries(ZONES).forEach(([zk,zone])=>{
-    const pts=zone.row==="top"?FORE:HIND;
-    const wp=el("path",{class:"wing",d:petal(pts,zone.side),fill:ZC[zk],"fill-opacity":0});
+    const cx=colX(zone),ys=colYS(zone);
+    const wp=el("path",{class:"wing",d:wingPath(zone),fill:ZC[zk],"fill-opacity":0});
     gDiagram.appendChild(wp);mainWings[zk]=wp;
-    const tip=zone.row==="top"?[432,-286]:[432,258];
-    gDiagram.appendChild(el("path",{class:"vein",d:`M ${CX} ${TH} Q ${CX+zone.side*tip[0]*.45} ${TH+tip[1]*.55} ${CX+zone.side*tip[0]*.9} ${TH+tip[1]*.9}`}));
-    const ny=zone.row==="top"?TH-296:TH+300, nx=CX+zone.side*334;
-    gDiagram.appendChild(el("text",{class:"zoneName",x:nx,y:ny,"text-anchor":"middle","font-size":16},zone.name));
-    gDiagram.appendChild(el("text",{class:"zoneTag",x:nx,y:ny+21,"text-anchor":"middle","font-size":11.5},zone.tag));
+    // espinha vertical (o fluxo descendo) ligando as 5 etapas
+    gDiagram.appendChild(el("path",{class:"vein",d:`M ${cx} ${ys[0]} L ${cx} ${ys[4]}`}));
+    // liga a asa ao cliente (extremidade voltada ao centro)
+    const inner=zone.row==="top"?ys[4]:ys[0];
+    gDiagram.appendChild(el("path",{class:"vein",d:`M ${cx} ${inner} Q ${cx} ${TH} ${CX} ${TH}`}));
+    // nome da zona (topo das asas de cima, base das asas de baixo)
+    const ny=zone.row==="top"?ys[0]-96:ys[4]+96;
+    gDiagram.appendChild(el("text",{class:"zoneName",x:cx,y:ny,"text-anchor":"middle","font-size":16},zone.name));
+    gDiagram.appendChild(el("text",{class:"zoneTag",x:cx,y:ny+19,"text-anchor":"middle","font-size":11.5},zone.tag));
   });
-  gDiagram.appendChild(el("text",{class:"kicker",x:CX,y:212,"text-anchor":"middle","font-size":11},"Canais de Aquisição"));
+
+  // canais de aquisição (topo)
+  gDiagram.appendChild(el("text",{class:"kicker",x:CX,y:-18,"text-anchor":"middle","font-size":11},"Canais de Aquisição"));
   function channels(list,side){list.forEach((name,i)=>{
-    const px=side<0?(CX-548+i*150):(CX+248+i*150);
-    gDiagram.appendChild(el("circle",{class:"chan-node",cx:px,cy:266,r:5}));
-    gDiagram.appendChild(el("text",{class:"chan",x:px,y:250,"text-anchor":"middle","font-size":11},name));
-    gDiagram.appendChild(el("path",{class:"chan-line",d:`M ${px} ${274} C ${px} ${330}, ${CX+side*300} ${360}, ${CX+side*300} ${430}`}));
+    const px=CX+side*(190+i*150), tx=CX+side*COLDX;
+    gDiagram.appendChild(el("circle",{class:"chan-node",cx:px,cy:22,r:5}));
+    gDiagram.appendChild(el("text",{class:"chan",x:px,y:6,"text-anchor":"middle","font-size":11},name));
+    gDiagram.appendChild(el("path",{class:"chan-line",d:`M ${px} ${30} C ${px} ${68}, ${tx} ${70}, ${tx} ${112}`}));
   });}
   channels(CHAN_L,-1); channels(CHAN_R,1);
-  const FTOP=286,FBOT=490,WTOP=216,WBOT=82,gap=7,bandH=(FBOT-FTOP-gap*3)/4;
+
+  // funil (corpo central, descendo)
   const wAt=y=>WTOP-(y-FTOP)/(FBOT-FTOP)*(WTOP-WBOT);
   gDiagram.appendChild(el("text",{class:"ftitle",x:CX,y:FTOP-14,"text-anchor":"middle","font-size":10.5},"Funil de Vendas"));
   FUNNEL.forEach((f,i)=>{const yt=FTOP+i*(bandH+gap),yb=yt+bandH,wt=wAt(yt)/2,wb=wAt(yb)/2;
@@ -300,7 +308,7 @@
   gDiagram.appendChild(el("path",{fill:"var(--body)",d:`M ${CX-WBOT/2} ${FBOT} L ${CX+WBOT/2} ${FBOT} L ${CX+13} ${TH-16} L ${CX-13} ${TH-16} Z`}));
   gDiagram.appendChild(el("circle",{class:"cli-ring",cx:CX,cy:TH,r:27}));
   gDiagram.appendChild(el("circle",{class:"cli-core",cx:CX,cy:TH,r:13}));
-  gDiagram.appendChild(el("text",{class:"cli-lbl",x:CX,y:TH+52,"text-anchor":"middle","font-size":11},"Cliente"));
+  gDiagram.appendChild(el("text",{class:"cli-lbl",x:CX,y:TH+50,"text-anchor":"middle","font-size":11},"Cliente"));
 
   const slotCenters={};
   Object.entries(ZONES).forEach(([zk,zone])=>{zone.stages.forEach((st,i)=>{
@@ -315,8 +323,8 @@
   });});
 
   /* ---------- view ---------- */
-  const CONTENT={x:-120,y:20,w:1660,h:960};
-  let vb={x:0,y:0,w:1660,h:960};
+  const CONTENT={x:150,y:-90,w:1120,h:1530};
+  let vb={x:150,y:-90,w:1120,h:1530};
   const px=()=>({w:svg.clientWidth||1,h:svg.clientHeight||1});
   function applyVB(){svg.setAttribute("viewBox",`${vb.x} ${vb.y} ${vb.w} ${vb.h}`);updateMinimap();updateZoom();}
   function fit(){const p=px();const ar=p.w/p.h;let w=CONTENT.w,h=CONTENT.h;if(w/h>ar)h=w/ar;else w=h*ar;w*=1.08;h*=1.08;
@@ -511,14 +519,9 @@
 
   /* ---------- minimap ---------- */
   const mmContent=el("g",{});mm.appendChild(mmContent);
-  // antenas (canais de aquisição) — dão o topo da borboleta
-  [[-190,150],[190,150]].forEach(([dx,ty])=>{
-    mmContent.appendChild(el("path",{class:"mm-antenna",d:`M ${CX} ${TH-8} Q ${CX+dx*0.5} ${ty+40} ${CX+dx} ${ty}`}));
-    mmContent.appendChild(el("circle",{class:"mm-antenna-dot",cx:CX+dx,cy:ty,r:8}));
-  });
-  // asas (se colorem conforme as etapas são preenchidas)
+  // asas verticais (se colorem conforme as etapas são preenchidas)
   const mmWings={};
-  Object.entries(ZONES).forEach(([zk,z])=>{const p=el("path",{class:"mm-wing",d:petal(z.row==="top"?FORE:HIND,z.side),fill:ZC[zk],"fill-opacity":0.06});mmContent.appendChild(p);mmWings[zk]=p;});
+  Object.entries(ZONES).forEach(([zk,z])=>{const p=el("path",{class:"mm-wing",d:wingPath(z),fill:ZC[zk],"fill-opacity":0.06});mmContent.appendChild(p);mmWings[zk]=p;});
   // corpo = funil (torso escuro) + pescoço
   mmContent.appendChild(el("path",{class:"mm-funnel",d:`M ${CX-WTOP/2} ${FTOP} L ${CX+WTOP/2} ${FTOP} L ${CX+WBOT/2} ${FBOT} L ${CX-WBOT/2} ${FBOT} Z`}));
   mmContent.appendChild(el("path",{class:"mm-funnel",d:`M ${CX-WBOT/2} ${FBOT} L ${CX+WBOT/2} ${FBOT} L ${CX+10} ${TH-14} L ${CX-10} ${TH-14} Z`}));
@@ -544,7 +547,7 @@
     document.getElementById("minimap").classList.toggle("done",total>=20);
   }
   document.getElementById("minimap").addEventListener("pointerdown",e=>{const r=mm.getBoundingClientRect();
-    const vbx=-160,vby=-80,vbw=1740,vbh=1200,sc=Math.min(r.width/vbw,r.height/vbh);
+    const vbx=150,vby=-90,vbw=1120,vbh=1530,sc=Math.min(r.width/vbw,r.height/vbh);
     const offx=(r.width-vbw*sc)/2,offy=(r.height-vbh*sc)/2;
     vb.x=(vbx+(e.clientX-r.left-offx)/sc)-vb.w/2;vb.y=(vby+(e.clientY-r.top-offy)/sc)-vb.h/2;applyVB();save();});
 
