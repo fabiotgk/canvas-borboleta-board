@@ -47,9 +47,14 @@
   .chan{fill:var(--ink-soft);font-weight:600}
   .chan-line{stroke:var(--ink);stroke-width:.8;stroke-dasharray:2 4;opacity:.24;fill:none;vector-effect:non-scaling-stroke}
   .chan-node{fill:var(--ink)}
-  .fband-name{fill:var(--body-txt);font-weight:700;letter-spacing:.06em}
-  .fband-pct{fill:var(--body-txt);font-weight:600}
-  .ftitle{fill:var(--ink-faint);font-weight:700;letter-spacing:.28em;text-transform:uppercase}
+  .fband-name{fill:var(--body-txt);font-weight:700;letter-spacing:.04em}
+  .fband-pct{fill:var(--body-txt);font-weight:700}
+  .ftitle{fill:rgba(247,245,237,.5);font-weight:700;letter-spacing:.28em;text-transform:uppercase}
+  .bodyshape{fill:var(--body);stroke:var(--ink);stroke-width:1.2;vector-effect:non-scaling-stroke}
+  .antenna{stroke:var(--ink);stroke-width:1.6;fill:none;vector-effect:non-scaling-stroke}
+  .antenna-dot{fill:var(--ink)}
+  .fsep{stroke:rgba(247,245,237,.22);stroke-width:1;vector-effect:non-scaling-stroke}
+  .abseg{stroke:rgba(247,245,237,.28);stroke-width:1.2;vector-effect:non-scaling-stroke}
   .cli-ring{fill:var(--paper);stroke:var(--ink);stroke-width:2;vector-effect:non-scaling-stroke}
   .cli-core{fill:var(--ink)}
   .cli-lbl{fill:var(--ink);font-weight:700;letter-spacing:.16em;text-transform:uppercase}
@@ -190,7 +195,7 @@
 
 <div class="minimap" id="minimap">
   <span class="mm-label">Mapa</span>
-  <svg id="mm" viewBox="150 -90 1120 1530" preserveAspectRatio="xMidYMid meet"></svg>
+  <svg id="mm" viewBox="40 -90 1340 1520" preserveAspectRatio="xMidYMid meet"></svg>
 </div>
 
 <aside class="panel" id="panel" aria-hidden="true" aria-label="Editor do post-it">
@@ -244,17 +249,26 @@
   const colX=zone=>CX+zone.side*COLDX;
   const colYS=zone=>zone.row==="top"?TOP_YS:BOT_YS;
   function slotCenter(zone,i){return {x:colX(zone),y:colYS(zone)[i]};}
-  // asa = pétala presa ao corpo central (pontuda p/ dentro, bojo arredondado p/ fora)
+  // asa de borboleta: presa ao corpo (cintura no centro CY), varrendo pra fora.
+  // asa de cima (forewing) = varre pra CIMA e fora, ponta alta. asa de baixo (hindwing) = desce arredondada.
+  const CY=740;                       // centro/cintura (onde fica o Cliente)
+  const X=(s,d)=>CX+s*d;              // helper: distância d p/ o lado s
   function wingPath(zone){
-    const s=zone.side, ys=colYS(zone), y0=ys[0]-54, y4=ys[4]+54, my=(ys[0]+ys[4])/2;
-    const inX=CX+s*(zone.row==="top"?110:54);   // borda interna (encosta no corpo)
-    const coX=CX+s*COLDX;                         // sobre a coluna
-    const ouX=CX+s*566;                           // ponta externa (bojo)
-    const ctI=CX+s*(zone.row==="top"?66:16);      // controle da borda interna (concava p/ o centro)
-    return `M ${inX} ${y0}`
-         + ` C ${coX} ${y0-44} ${ouX} ${my-158} ${ouX} ${my}`
-         + ` C ${ouX} ${my+158} ${coX} ${y4+44} ${inX} ${y4}`
-         + ` C ${ctI} ${my+96} ${ctI} ${my-96} ${inX} ${y0} Z`;
+    const s=zone.side;
+    if(zone.row==="top"){
+      // asa superior (forewing): cintura -> borda externa -> ápice varrido no alto -> volta à cabeça
+      return `M ${X(s,44)} ${688}`                                   // A: junto ao corpo, na cintura
+           + ` C ${X(s,320)} ${712} ${X(s,606)} ${660} ${X(s,628)} ${492}` // borda inferior-externa
+           + ` C ${X(s,648)} ${344} ${X(s,632)} ${214} ${X(s,548)} ${172}` // sobe ao ápice (alto e externo)
+           + ` C ${X(s,424)} ${126} ${X(s,206)} ${136} ${X(s,120)} ${226}` // topo desce p/ a cabeça
+           + ` C ${X(s,70)}  ${300} ${X(s,20)}  ${520} ${X(s,44)}  ${688} Z`; // borda interna côncava colada ao corpo
+    }
+    // asa inferior (hindwing): desce arredondada, lóbulo apontado embaixo
+    return `M ${X(s,44)} ${792}`                                     // junto ao corpo, na cintura
+         + ` C ${X(s,320)} ${768} ${X(s,600)} ${856} ${X(s,616)} ${1016}`
+         + ` C ${X(s,632)} ${1168} ${X(s,556)} ${1300} ${X(s,368)} ${1356}` // lóbulo externo-baixo apontado
+         + ` C ${X(s,258)} ${1388} ${X(s,118)} ${1374} ${X(s,80)} ${1280}`  // ponta interna-baixa (junto ao abdômen)
+         + ` C ${X(s,26)}  ${1160} ${X(s,20)}  ${940} ${X(s,44)}  ${792} Z`;
   }
   const RAW={yellow:"#FCE68A",pink:"#F7BFD0",blue:"#AFD6EC",green:"#BFE3B4",white:"#FBFAF4"};
   const NW=132, NH=104;  // post-it ~ tamanho do slot
@@ -307,17 +321,40 @@
   });}
   channels(CHAN_L,-1); channels(CHAN_R,1);
 
-  // funil (corpo central, descendo)
-  const wAt=y=>WTOP-(y-FTOP)/(FBOT-FTOP)*(WTOP-WBOT);
-  gDiagram.appendChild(el("text",{class:"ftitle",x:CX,y:FTOP-14,"text-anchor":"middle","font-size":10.5},"Funil de Vendas"));
-  FUNNEL.forEach((f,i)=>{const yt=FTOP+i*(bandH+gap),yb=yt+bandH,wt=wAt(yt)/2,wb=wAt(yb)/2;
-    gDiagram.appendChild(el("path",{fill:"var(--body)",d:`M ${CX-wt} ${yt} L ${CX+wt} ${yt} L ${CX+wb} ${yb} L ${CX-wb} ${yb} Z`}));
-    gDiagram.appendChild(el("text",{class:"fband-name",x:CX,y:yt+bandH/2-3,"text-anchor":"middle","font-size":10.5},f[0].toUpperCase()));
-    gDiagram.appendChild(el("text",{class:"fband-pct",x:CX,y:yt+bandH/2+15,"text-anchor":"middle","font-size":14},f[1]+"%"));});
-  gDiagram.appendChild(el("path",{fill:"var(--body)",d:`M ${CX-WBOT/2} ${FBOT} L ${CX+WBOT/2} ${FBOT} L ${CX+13} ${TH-16} L ${CX-13} ${TH-16} Z`}));
-  gDiagram.appendChild(el("circle",{class:"cli-ring",cx:CX,cy:TH,r:27}));
-  gDiagram.appendChild(el("circle",{class:"cli-core",cx:CX,cy:TH,r:13}));
-  gDiagram.appendChild(el("text",{class:"cli-lbl",x:CX,y:TH+50,"text-anchor":"middle","font-size":11},"Cliente"));
+  // ---- corpo da borboleta: cabeça + antenas + fuso (tórax->abdômen) ----
+  // fuso vertical: estreito no pescoço, bojo no tórax, cintura no CY, bojo no abdômen, ponta embaixo
+  const bodyPath =
+      `M ${CX} 1380`
+    + ` C ${CX-8} 1300 ${CX-40} 1170 ${CX-44} 960`
+    + ` C ${CX-46} 858 ${CX-30} 800 ${CX-24} 740`
+    + ` C ${CX-32} 676 ${CX-50} 596 ${CX-50} 468`
+    + ` C ${CX-50} 330 ${CX-42} 236 ${CX-16} 182`
+    + ` C ${CX-8} 166 ${CX+8} 166 ${CX+16} 182`
+    + ` C ${CX+42} 236 ${CX+50} 330 ${CX+50} 468`
+    + ` C ${CX+50} 596 ${CX+32} 676 ${CX+24} 740`
+    + ` C ${CX+30} 800 ${CX+46} 858 ${CX+44} 960`
+    + ` C ${CX+40} 1170 ${CX+8} 1300 ${CX} 1380 Z`;
+  // antenas (saem da cabeça, sobem e abrem)
+  gDiagram.appendChild(el("path",{class:"antenna",d:`M ${CX-6} 150 C ${CX-30} 110 ${CX-58} 96 ${CX-78} 66`}));
+  gDiagram.appendChild(el("path",{class:"antenna",d:`M ${CX+6} 150 C ${CX+30} 110 ${CX+58} 96 ${CX+78} 66`}));
+  gDiagram.appendChild(el("circle",{class:"antenna-dot",cx:CX-80,cy:62,r:5}));
+  gDiagram.appendChild(el("circle",{class:"antenna-dot",cx:CX+80,cy:62,r:5}));
+  // corpo + cabeça
+  gDiagram.appendChild(el("path",{class:"bodyshape",d:bodyPath}));
+  gDiagram.appendChild(el("circle",{class:"bodyshape",cx:CX,cy:150,r:17}));
+  // funil de vendas dentro do tórax (as % vão descendo)
+  const FBANDS=[245,360,475,590];
+  gDiagram.appendChild(el("text",{class:"ftitle",x:CX,y:200,"text-anchor":"middle","font-size":9},"FUNIL"));
+  FUNNEL.forEach((f,i)=>{const cy=FBANDS[i];
+    if(i>0)gDiagram.appendChild(el("line",{class:"fsep",x1:CX-40,y1:cy-32,x2:CX+40,y2:cy-32}));
+    gDiagram.appendChild(el("text",{class:"fband-name",x:CX,y:cy-4,"text-anchor":"middle","font-size":8.5},f[0].toUpperCase()));
+    gDiagram.appendChild(el("text",{class:"fband-pct",x:CX,y:cy+13,"text-anchor":"middle","font-size":13},f[1]+"%"));});
+  // segmentos do abdômen (detalhe de borboleta)
+  [1000,1080,1160,1240].forEach(y=>gDiagram.appendChild(el("line",{class:"abseg",x1:CX-((y<1120)?30:20),y1:y,x2:CX+((y<1120)?30:20),y2:y})));
+  // Cliente = centro/cintura (o encontro das asas)
+  gDiagram.appendChild(el("circle",{class:"cli-ring",cx:CX,cy:CY,r:24}));
+  gDiagram.appendChild(el("circle",{class:"cli-core",cx:CX,cy:CY,r:11}));
+  gDiagram.appendChild(el("text",{class:"cli-lbl",x:CX,y:CY+40,"text-anchor":"middle","font-size":9.5,fill:"var(--body-txt)"},"CLIENTE"));
 
   const slotCenters={};
   Object.entries(ZONES).forEach(([zk,zone])=>{zone.stages.forEach((st,i)=>{
@@ -332,8 +369,8 @@
   });});
 
   /* ---------- view ---------- */
-  const CONTENT={x:150,y:-90,w:1120,h:1530};
-  let vb={x:150,y:-90,w:1120,h:1530};
+  const CONTENT={x:40,y:-90,w:1340,h:1520};
+  let vb={x:40,y:-90,w:1340,h:1520};
   const px=()=>({w:svg.clientWidth||1,h:svg.clientHeight||1});
   function applyVB(){svg.setAttribute("viewBox",`${vb.x} ${vb.y} ${vb.w} ${vb.h}`);updateMinimap();updateZoom();}
   function fit(){const p=px();const ar=p.w/p.h;let w=CONTENT.w,h=CONTENT.h;if(w/h>ar)h=w/ar;else w=h*ar;w*=1.08;h*=1.08;
@@ -531,12 +568,14 @@
   // asas verticais (se colorem conforme as etapas são preenchidas)
   const mmWings={};
   Object.entries(ZONES).forEach(([zk,z])=>{const p=el("path",{class:"mm-wing",d:wingPath(z),fill:ZC[zk],"fill-opacity":0.06});mmContent.appendChild(p);mmWings[zk]=p;});
-  // corpo = funil (torso escuro) + pescoço
-  mmContent.appendChild(el("path",{class:"mm-funnel",d:`M ${CX-WTOP/2} ${FTOP} L ${CX+WTOP/2} ${FTOP} L ${CX+WBOT/2} ${FBOT} L ${CX-WBOT/2} ${FBOT} Z`}));
-  mmContent.appendChild(el("path",{class:"mm-funnel",d:`M ${CX-WBOT/2} ${FBOT} L ${CX+WBOT/2} ${FBOT} L ${CX+10} ${TH-14} L ${CX-10} ${TH-14} Z`}));
-  // cabeça/cliente
-  mmContent.appendChild(el("circle",{class:"mm-ring",cx:CX,cy:TH,r:24}));
-  mmContent.appendChild(el("circle",{class:"mm-body",cx:CX,cy:TH,r:12}));
+  // corpo = fuso (tórax->abdômen) + cabeça + antenas
+  mmContent.appendChild(el("path",{class:"mm-antenna",d:`M ${CX-6} 150 C ${CX-30} 110 ${CX-58} 96 ${CX-78} 66`}));
+  mmContent.appendChild(el("path",{class:"mm-antenna",d:`M ${CX+6} 150 C ${CX+30} 110 ${CX+58} 96 ${CX+78} 66`}));
+  mmContent.appendChild(el("circle",{class:"mm-antenna-dot",cx:CX-80,cy:62,r:5}));
+  mmContent.appendChild(el("circle",{class:"mm-antenna-dot",cx:CX+80,cy:62,r:5}));
+  mmContent.appendChild(el("path",{class:"mm-body",d:bodyPath}));
+  mmContent.appendChild(el("circle",{class:"mm-body",cx:CX,cy:150,r:17}));
+  mmContent.appendChild(el("circle",{class:"mm-ring",cx:CX,cy:CY,r:22}));
   const mmNotes=el("g",{});mm.appendChild(mmNotes);
   const mmView=el("rect",{class:"mm-view",x:0,y:0,width:10,height:10});mm.appendChild(mmView);
   function updateMinimap(){mmView.setAttribute("x",vb.x);mmView.setAttribute("y",vb.y);mmView.setAttribute("width",vb.w);mmView.setAttribute("height",vb.h);
@@ -556,7 +595,7 @@
     document.getElementById("minimap").classList.toggle("done",total>=20);
   }
   document.getElementById("minimap").addEventListener("pointerdown",e=>{const r=mm.getBoundingClientRect();
-    const vbx=150,vby=-90,vbw=1120,vbh=1530,sc=Math.min(r.width/vbw,r.height/vbh);
+    const vbx=40,vby=-90,vbw=1340,vbh=1520,sc=Math.min(r.width/vbw,r.height/vbh);
     const offx=(r.width-vbw*sc)/2,offy=(r.height-vbh*sc)/2;
     vb.x=(vbx+(e.clientX-r.left-offx)/sc)-vb.w/2;vb.y=(vby+(e.clientY-r.top-offy)/sc)-vb.h/2;applyVB();save();});
 
