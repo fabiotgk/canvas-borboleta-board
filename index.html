@@ -68,10 +68,11 @@
   .slot.droptarget rect{stroke:var(--sel)!important;stroke-dasharray:none!important;fill:rgba(198,154,46,.16)!important;opacity:1!important}
 
   /* connectors */
-  .conn{stroke:var(--ink);stroke-width:2.4;fill:none;vector-effect:non-scaling-stroke}
-  .conn.sel{stroke:var(--sel)}
-  .conn-hit{stroke:transparent;stroke-width:18;fill:none;cursor:pointer}
-  .conn-del{cursor:pointer}
+  .conn{stroke:var(--ink);stroke-width:2.4;fill:none;vector-effect:non-scaling-stroke;transition:stroke .12s}
+  .conn-hit{stroke:transparent;stroke-width:22;fill:none;cursor:pointer}
+  .conn-group:hover .conn,.conn-group.sel .conn{stroke:var(--sel)}
+  .conn-del{opacity:0;transition:opacity .12s;cursor:pointer;pointer-events:auto}
+  .conn-group:hover .conn-del,.conn-group.sel .conn-del{opacity:1}
   .conn-del circle{fill:var(--sel)}
   .conn-del text{fill:#fff;font-weight:700;text-anchor:middle}
   #temp{stroke:var(--sel);stroke-width:2.4;stroke-dasharray:6 5;fill:none;vector-effect:non-scaling-stroke;pointer-events:none}
@@ -403,14 +404,17 @@
   function clip(box,toward){const dx=toward.x-box.x,dy=toward.y-box.y;
     const s=1/Math.max(Math.abs(dx)/box.hw||1e-6,Math.abs(dy)/box.hh||1e-6);return {x:box.x+dx*s,y:box.y+dy*s};}
   function renderConns(){gConn.innerHTML="";conns.forEach(c=>{const A=anchorBox(c.a),B=anchorBox(c.b);if(!A||!B)return;
-    const p1=clip(A,B),p2=clip(B,A);
-    gConn.appendChild(el("path",{class:"conn-hit",d:`M ${p1.x} ${p1.y} L ${p2.x} ${p2.y}`,"data-cid":c.id}));
-    gConn.appendChild(el("path",{class:"conn"+(selConn===c.id?" sel":""),d:`M ${p1.x} ${p1.y} L ${p2.x} ${p2.y}`,"marker-end":"url(#"+(selConn===c.id?"arwS":"arw")+")"}));
-    if(selConn===c.id){const mx=(p1.x+p2.x)/2,my=(p1.y+p2.y)/2;const d=el("g",{class:"conn-del","data-cid":c.id});
-      d.appendChild(el("circle",{cx:mx,cy:my,r:11}));d.appendChild(el("text",{x:mx,y:my+4,"font-size":13},"✕"));gConn.appendChild(d);}});}
-  gConn.addEventListener("click",e=>{const del=e.target.closest(".conn-del");
-    if(del){conns=conns.filter(c=>c.id!==del.dataset.cid);selConn=null;renderConns();save();return;}
-    const hit=e.target.closest(".conn-hit");if(hit){selConn=selConn===hit.dataset.cid?null:hit.dataset.cid;renderConns();e.stopPropagation();}});
+    const p1=clip(A,B),p2=clip(B,A),mx=(p1.x+p2.x)/2,my=(p1.y+p2.y)/2;
+    const g=el("g",{class:"conn-group"+(selConn===c.id?" sel":""),"data-cid":c.id});
+    g.appendChild(el("path",{class:"conn-hit",d:`M ${p1.x} ${p1.y} L ${p2.x} ${p2.y}`}));
+    g.appendChild(el("path",{class:"conn",d:`M ${p1.x} ${p1.y} L ${p2.x} ${p2.y}`,"marker-end":"url(#arw)"}));
+    const del=el("g",{class:"conn-del"});
+    del.appendChild(el("circle",{cx:mx,cy:my,r:12}));
+    del.appendChild(el("text",{x:mx,y:my+4,"font-size":13},"✕"));
+    g.appendChild(del);gConn.appendChild(g);});}
+  gConn.addEventListener("click",e=>{const grp=e.target.closest(".conn-group");if(!grp)return;const cid=grp.dataset.cid;
+    if(e.target.closest(".conn-del")){conns=conns.filter(c=>c.id!==cid);selConn=null;renderConns();if(selectedId)renderPanelConns();save();e.stopPropagation();return;}
+    selConn=selConn===cid?null:cid;renderConns();e.stopPropagation();});
 
   // drag-to-connect (draw.io style)
   let connecting=null;
@@ -470,7 +474,7 @@
   let pan=false,psx,psy,pvx,pvy;
   svg.addEventListener("pointerdown",e=>{
     if(connecting)return;
-    if(e.target.closest(".note")||e.target.closest(".slot")||e.target.closest(".conn-hit")||e.target.closest(".conn-del"))return;
+    if(e.target.closest(".note")||e.target.closest(".slot")||e.target.closest(".conn-group"))return;
     selConn=null;renderConns();closePanel();
     pan=true;psx=e.clientX;psy=e.clientY;pvx=vb.x;pvy=vb.y;svg.classList.add("panning");svg.setPointerCapture(e.pointerId);});
   svg.addEventListener("pointermove",e=>{if(!pan)return;const p=px();vb.x=pvx-(e.clientX-psx)*vb.w/p.w;vb.y=pvy-(e.clientY-psy)*vb.h/p.h;applyVB();});
