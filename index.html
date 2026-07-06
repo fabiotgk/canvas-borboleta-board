@@ -39,7 +39,7 @@
   svg#board.panning{cursor:grabbing}
   svg#board.connecting{cursor:crosshair}
 
-  .wing{fill:none;stroke:var(--ink);stroke-width:1.5;vector-effect:non-scaling-stroke}
+  .wing{stroke:var(--ink);stroke-width:1.5;vector-effect:non-scaling-stroke;transition:fill-opacity .5s ease}
   .vein{stroke:var(--ink);stroke-width:.7;fill:none;opacity:.16;vector-effect:non-scaling-stroke}
   .zoneName{font-weight:700;letter-spacing:.2em;text-transform:uppercase;fill:var(--ink)}
   .zoneTag{fill:var(--ink-soft);font-weight:600}
@@ -113,8 +113,10 @@
     background:rgba(251,250,244,.94);border:1px solid var(--hair-2);border-radius:10px;overflow:hidden;
     box-shadow:0 10px 30px -14px rgba(0,0,0,.45);cursor:pointer}
   .minimap svg{width:100%;height:100%;display:block}
-  .mm-wing{fill:rgba(0,0,0,.05);stroke:var(--ink-soft);stroke-width:2.5}
+  .mm-wing{stroke:var(--ink-soft);stroke-width:2.5;transition:fill-opacity .5s ease}
   .mm-funnel{fill:var(--ink)}
+  .minimap.done{box-shadow:0 0 0 2px var(--sel), 0 10px 30px -14px rgba(0,0,0,.45)}
+  .minimap.done .mm-label{color:var(--sel)}
   .mm-ring{fill:var(--paper-2);stroke:var(--ink);stroke-width:4}
   .mm-body{fill:var(--ink)}
   .mm-antenna{stroke:var(--ink-soft);stroke-width:2;fill:none}
@@ -210,9 +212,12 @@
   gDiagram.appendChild(el("text",{class:"title-h serif",x:70,y:96,"font-size":30},"Arquitetura Borboleta"));
   gDiagram.appendChild(el("text",{class:"title-s",x:72,y:120,"font-size":12.5},"Board de trabalho · clique numa etapa e escreva, conecte, dê zoom"));
 
-  Object.values(ZONES).forEach(zone=>{
+  const ZC={out:"#D2913A",in:"#4C8DB6",ret:"#55976A",exp:"#97609F"}; // cor de cada zona (preenchimento)
+  const mainWings={};
+  Object.entries(ZONES).forEach(([zk,zone])=>{
     const pts=zone.row==="top"?FORE:HIND;
-    gDiagram.appendChild(el("path",{class:"wing",d:petal(pts,zone.side)}));
+    const wp=el("path",{class:"wing",d:petal(pts,zone.side),fill:ZC[zk],"fill-opacity":0});
+    gDiagram.appendChild(wp);mainWings[zk]=wp;
     const tip=zone.row==="top"?[432,-286]:[432,258];
     gDiagram.appendChild(el("path",{class:"vein",d:`M ${CX} ${TH} Q ${CX+zone.side*tip[0]*.45} ${TH+tip[1]*.55} ${CX+zone.side*tip[0]*.9} ${TH+tip[1]*.9}`}));
     const ny=zone.row==="top"?TH-296:TH+300, nx=CX+zone.side*334;
@@ -327,10 +332,10 @@
 
   function addNote(o){o.id=o.id||("n"+(idc++)+"_"+Math.round(performance.now()));
     notes.push(o);if(o.slot){const s=gSlots.querySelector('[data-id="slot:'+o.slot+'"]');if(s)s.classList.add("filled");}
-    makeNote(o);save();hideHint();focusNote(o.id);return o;}
+    makeNote(o);updateProgress();save();hideHint();focusNote(o.id);return o;}
   function removeNote(id){const i=notes.findIndex(n=>n.id===id);if(i<0)return;const o=notes[i];
     if(o.slot){const s=gSlots.querySelector('[data-id="slot:'+o.slot+'"]');if(s)s.classList.remove("filled");}
-    notes.splice(i,1);noteEls[id].remove();delete noteEls[id];conns=conns.filter(c=>c.a!==id&&c.b!==id);renderConns();updateMinimap();save();}
+    notes.splice(i,1);noteEls[id].remove();delete noteEls[id];conns=conns.filter(c=>c.a!==id&&c.b!==id);renderConns();updateMinimap();updateProgress();save();}
 
   // add via slot click
   gSlots.addEventListener("click",e=>{const g=e.target.closest(".slot");if(!g)return;
@@ -403,8 +408,9 @@
     mmContent.appendChild(el("path",{class:"mm-antenna",d:`M ${CX} ${TH-8} Q ${CX+dx*0.5} ${ty+40} ${CX+dx} ${ty}`}));
     mmContent.appendChild(el("circle",{class:"mm-antenna-dot",cx:CX+dx,cy:ty,r:8}));
   });
-  // asas
-  Object.values(ZONES).forEach(z=>mmContent.appendChild(el("path",{class:"mm-wing",d:petal(z.row==="top"?FORE:HIND,z.side)})));
+  // asas (se colorem conforme as etapas são preenchidas)
+  const mmWings={};
+  Object.entries(ZONES).forEach(([zk,z])=>{const p=el("path",{class:"mm-wing",d:petal(z.row==="top"?FORE:HIND,z.side),fill:ZC[zk],"fill-opacity":0.06});mmContent.appendChild(p);mmWings[zk]=p;});
   // corpo = funil (torso escuro) + pescoço
   mmContent.appendChild(el("path",{class:"mm-funnel",d:`M ${CX-WTOP/2} ${FTOP} L ${CX+WTOP/2} ${FTOP} L ${CX+WBOT/2} ${FBOT} L ${CX-WBOT/2} ${FBOT} Z`}));
   mmContent.appendChild(el("path",{class:"mm-funnel",d:`M ${CX-WBOT/2} ${FBOT} L ${CX+WBOT/2} ${FBOT} L ${CX+10} ${TH-14} L ${CX-10} ${TH-14} Z`}));
@@ -415,6 +421,20 @@
   const mmView=el("rect",{class:"mm-view",x:0,y:0,width:10,height:10});mm.appendChild(mmView);
   function updateMinimap(){mmView.setAttribute("x",vb.x);mmView.setAttribute("y",vb.y);mmView.setAttribute("width",vb.w);mmView.setAttribute("height",vb.h);
     mmNotes.innerHTML="";notes.forEach(o=>mmNotes.appendChild(el("rect",{x:o.x,y:o.y,width:NW,height:NH,rx:6,fill:RAW[o.color]||RAW.yellow,stroke:"rgba(0,0,0,.25)","stroke-width":2})));}
+
+  // a borboleta "se completa" conforme as etapas são preenchidas
+  const mmLabel=document.querySelector(".mm-label");
+  function updateProgress(){
+    let total=0;
+    Object.keys(ZONES).forEach(zk=>{
+      const filled=notes.filter(n=>n.slot&&n.slot.startsWith(zk)).length; total+=filled;
+      const frac=filled/5;
+      if(mainWings[zk]) mainWings[zk].setAttribute("fill-opacity",(frac*0.13).toFixed(3));
+      if(mmWings[zk]) mmWings[zk].setAttribute("fill-opacity",(0.06+frac*0.80).toFixed(3));
+    });
+    if(mmLabel) mmLabel.textContent = total>=20 ? "Borboleta completa ✓" : ("Mapa · "+total+"/20");
+    document.getElementById("minimap").classList.toggle("done",total>=20);
+  }
   document.getElementById("minimap").addEventListener("pointerdown",e=>{const r=mm.getBoundingClientRect();
     const vbx=-160,vby=-80,vbw=1740,vbh=1200,sc=Math.min(r.width/vbw,r.height/vbh);
     const offx=(r.width-vbw*sc)/2,offy=(r.height-vbh*sc)/2;
@@ -449,7 +469,7 @@
   notes.forEach(o=>{makeNote(o);if(o.slot){const s=gSlots.querySelector('[data-id="slot:'+o.slot+'"]');if(s)s.classList.add("filled");}});
   renderConns();
   if(!localStorage.getItem(KEY))fit();else applyVB();
-  updateMinimap();
+  updateMinimap();updateProgress();
 })();
 </script>
 </body>
