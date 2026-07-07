@@ -251,7 +251,7 @@
   const CY=BCY+(414-400)*S;                             // cintura (nó Cliente), em board
   const MIR="matrix(-1,0,0,1,800,0)";                  // espelho horizontal (lado esquerdo)
   // contorno das asas no espaço-800 (lado DIREITO); esquerda = mesmo path + transform MIR
-  const FORE_R="M 406 300 C 450 286 494 262 534 226 C 598 166 668 136 712 148 C 728 174 722 214 702 252 C 684 298 654 338 612 364 C 558 396 480 408 432 414 C 415 417 409 408 406 392 Z";
+  const FORE_R="M 410 302 C 450 286 492 258 524 216 C 582 144 700 104 750 132 C 756 202 736 300 690 358 C 654 398 548 412 452 414 C 430 415 414 406 410 392 Z";
   const HIND_R="M 404 426 C 458 422 530 430 588 458 C 662 494 704 550 692 606 C 684 644 654 670 614 676 C 592 679 578 664 568 678 C 550 702 514 718 488 702 C 462 686 448 638 436 594 C 424 550 410 486 404 448 Z";
   const wingD=zone=>zone.row==="top"?FORE_R:HIND_R;
   // âncoras dos 5 slots dentro da asa (espaço-800, lado direito), ordem etapa 1 -> 5
@@ -297,7 +297,7 @@
     const wp=el("path",a); gBfly.appendChild(wp); mainWings[zk]=wp;
   });
   // nervuras decorativas (leves) dentro das asas — os dois lados
-  const VEINS=["M 428 356 C 508 312 590 256 678 176","M 440 600 C 500 582 560 562 620 590"];
+  const VEINS=["M 428 356 C 512 306 604 240 694 150","M 440 600 C 500 582 560 562 620 590"];
   [1,-1].forEach(sd=>VEINS.forEach(d=>{const a={class:"vein",d};if(sd===-1)a.transform=MIR;gBfly.appendChild(el("path",a));}));
 
   // ---- corpo da borboleta (espaço-800): antenas + fuso (tórax->abdômen) + cabeça ----
